@@ -2,45 +2,30 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Family Website - Hello & Lasagna Recipe</title>
+  <title>Quadrants</title>
+  <link rel="icon" href="data:;base64,=">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <header>
-    <h1>Hello, Family!</h1>
-    <p class="intro">Welcome to our family website where we share our favorite recipes.</p>
+    <h1>Quadrants</h1>
   </header>
-  <section class="recipe">
-    <h2>Lasagna Recipe</h2>
-    <button onclick="toggleRecipe()">Show/Hide Recipe</button>
-    <div id="recipeContent" style="display: none;">
-      <h3>Ingredients:</h3>
-      <ul>
-        <li>1 lb ground beef</li>
-        <li>1 onion, chopped</li>
-        <li>2 cloves garlic, minced</li>
-        <li>1 jar marinara sauce</li>
-        <li>9 lasagna noodles</li>
-        <li>16 oz ricotta cheese</li>
-        <li>2 cups mozzarella cheese, shredded</li>
-        <li>1/2 cup grated Parmesan cheese</li>
-        <li>Salt and pepper to taste</li>
-        <li>Fresh basil (optional)</li>
-      </ul>
-      <h3>Instructions:</h3>
-      <ol>
-        <li>Preheat your oven to 375°F (190°C).</li>
-        <li>In a large skillet, cook the ground beef, onion, and garlic until browned. Drain excess fat.</li>
-        <li>Add the marinara sauce, salt, and pepper, then simmer for 10 minutes.</li>
-        <li>Cook the lasagna noodles according to package instructions.</li>
-        <li>In a baking dish, layer noodles, meat sauce, ricotta, and mozzarella. Repeat layers as desired.</li>
-        <li>Top with Parmesan cheese and fresh basil if using.</li>
-        <li>Bake for 25-30 minutes until bubbly and golden.</li>
-        <li>Let cool for 10 minutes before serving.</li>
-      </ol>
-    </div>
-  </section>
+
+  <div id="controls">
+    <div id="promptBox">Place a Dart: <span id="promptWord"></span></div>
+    <button id="clearBtn">Clear</button>
+    <div id="resultBox"></div>
+  </div>
+
+  <div id="axisLabels">
+    <span id="xLabelLeft"></span> vs <span id="xLabelRight"></span> &nbsp;|&nbsp; <span id="yLabelTop"></span> vs <span id="yLabelBottom"></span>
+  </div>
+  <div id="clueBox"></div>
+
+  <main>
+    <canvas id="gridCanvas" width="600" height="600"></canvas>
+  </main>
+
   <script src="script.js"></script>
 </body>
 </html>
