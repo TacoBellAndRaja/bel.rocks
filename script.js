@@ -49,7 +49,7 @@ makeMeat(); makeMeat(); makeMeat();
       zone.appendChild(item);
       item.dataset.status = 'cooking';
       item.classList.add('cooking');
-      const cookTime = zone === grillEl ? 10000 : 30000;
+      const cookTime = zone === grillEl ? 3000 : 5000;
       setTimeout(() => {
         item.dataset.status = 'done';
         item.classList.remove('cooking');
