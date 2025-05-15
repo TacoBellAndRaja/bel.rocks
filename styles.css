@@ -19,7 +19,6 @@ h1 { margin-bottom: 5px; }
   margin: 0 auto;
 }
 
-/* common zone styling */
 .zone {
   background: #444;
   border: 2px solid #888;
@@ -28,13 +27,11 @@ h1 { margin-bottom: 5px; }
   position: relative;
 }
 
-/* tray & queue unchanged */
 #queue, #tray {
   width: 20%;
   min-height: 300px;
 }
 
-/* cooking area layout */
 #cooking-area {
   display: flex;
   flex-direction: column;
@@ -42,27 +39,16 @@ h1 { margin-bottom: 5px; }
   width: 55%;
 }
 
-/* grill styling */
 #grill {
   height: 150px;
   background:
-    /* ash bed */
     radial-gradient(circle at 50% 100%, #222 60%, transparent 61%),
-    /* grates */
-    repeating-linear-gradient(
-      to right,
-      transparent 0,
-      transparent 18px,
-      #222 18px,
-      #222 20px
-    ),
-    /* base color */
+    repeating-linear-gradient(to right, transparent 0, transparent 18px, #222 18px, #222 20px),
     #666;
   border: 4px solid #333;
   border-radius: 6px 6px 0 0;
   overflow: hidden;
 }
-/* grill legs */
 #grill::before, #grill::after {
   content: '';
   position: absolute;
@@ -74,14 +60,12 @@ h1 { margin-bottom: 5px; }
 #grill::before { left: 20px; }
 #grill::after  { right: 20px; }
 
-/* smoker styling */
 #smoker {
   height: 130px;
   background: #555;
   border: 4px solid #333;
   border-radius: 6px;
 }
-/* smoker legs */
 #smoker::before, #smoker::after {
   content: '';
   position: absolute;
@@ -92,7 +76,6 @@ h1 { margin-bottom: 5px; }
 }
 #smoker::before { left: 25px; }
 #smoker::after  { right: 25px; }
-/* smoker chimney */
 #smoker .chimney {
   position: absolute;
   top: -40px;
@@ -104,10 +87,8 @@ h1 { margin-bottom: 5px; }
   border-radius: 4px 4px 0 0;
 }
 
-/* make sure .dropzone picks up full height */
 .dropzone { min-height: 150px; }
 
-/* meat items */
 .meat-item {
   cursor: grab;
   display: inline-block;
@@ -116,9 +97,15 @@ h1 { margin-bottom: 5px; }
   transition: opacity 0.2s;
 }
 .meat-item.cooking { opacity: 0.4; }
-.meat-item.done    { border: 2px solid #0f0; opacity: 1; }
+.meat-item.done {
+  border: 4px solid #0f0;
+  box-shadow: 0 0 8px #0f0;
+}
+.meat-item.no-cook {
+  opacity: 0.8;
+  filter: grayscale(80%);
+}
 
-/* dragging state */
 .meat-item.dragging {
   opacity: 0.6;
   pointer-events: none;
