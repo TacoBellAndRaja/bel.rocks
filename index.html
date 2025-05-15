@@ -2,30 +2,28 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Quadrants</title>
-  <link rel="icon" href="data:;base64,=">
+  <title>Cook ’em With Kindness</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <header>
-    <h1>Quadrants</h1>
-  </header>
-
-  <div id="controls">
-    <div id="promptBox">Place a Dart: <span id="promptWord"></span></div>
-    <button id="clearBtn">Clear</button>
-    <div id="resultBox"></div>
+  <h1>Cook ’em With Kindness</h1>
+  <div id="score">Score: 0</div>
+  <div id="game">
+    <div id="queue" class="zone">
+      <h2>Queue</h2>
+    </div>
+    <div id="cooking-area">
+      <div id="grill" class="zone dropzone">
+        <h2>Grill (10s)</h2>
+      </div>
+      <div id="smoker" class="zone dropzone">
+        <h2>Smoker (30s)</h2>
+      </div>
+    </div>
+    <div id="tray" class="zone dropzone">
+      <h2>Tray</h2>
+    </div>
   </div>
-
-  <div id="axisLabels">
-    <span id="xLabelLeft"></span> vs <span id="xLabelRight"></span> &nbsp;|&nbsp; <span id="yLabelTop"></span> vs <span id="yLabelBottom"></span>
-  </div>
-  <div id="clueBox"></div>
-
-  <main>
-    <canvas id="gridCanvas" width="600" height="600"></canvas>
-  </main>
-
   <script src="script.js"></script>
 </body>
 </html>
