@@ -6,24 +6,28 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <div id="banner">oh heavens – there is some weather coming, do you have the guts?</div>
   <h1>Cook ’em With Kindness</h1>
-  <div id="score">Score: 0</div>
+  <button id="genRibs">Generate Rack of Ribs</button>
+
   <div id="game">
     <div id="queue" class="zone">
       <h2>Queue</h2>
     </div>
-    <div id="cooking-area">
-      <div id="grill" class="zone dropzone">
-        <h2>Grill (3s)</h2>
+    <div id="smoker" class="zone dropzone">
+      <div class="lid"></div>
+      <div class="body"></div>
+      <div class="eyes">
+        <div class="eye left"></div>
+        <div class="eye right"></div>
       </div>
-      <div id="smoker" class="zone dropzone">
-        <h2>Smoker (8s)</h2>
-      </div>
-    </div>
-    <div id="tray" class="zone dropzone">
-      <h2>Tray</h2>
+      <div class="mouth"></div>
+      <h2>Feed me ribs!</h2>
     </div>
   </div>
+
+  <div id="question" class="hidden"></div>
+
   <script src="script.js"></script>
 </body>
 </html>
