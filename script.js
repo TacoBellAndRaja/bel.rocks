@@ -19,15 +19,17 @@ function makeRib() {
   rib.textContent = '🍖';
   rib.draggable = true;
   rib.id = 'rib' + (++ribCount);
+
   rib.addEventListener('dragstart', e => {
     e.dataTransfer.setData('text/plain', rib.id);
   });
   rib.addEventListener('touchstart', onTouchStart, { passive: false });
+
   queue.appendChild(rib);
 }
 setInterval(makeRib, 2000);
 
-// 2) desktop drop handler
+// 2) desktop drop handler (anywhere on #smoker)
 smoker.addEventListener('dragover', e => e.preventDefault());
 smoker.addEventListener('drop', e => {
   e.preventDefault();
@@ -44,14 +46,12 @@ function feedSmoker(rib) {
     rib.remove();
     score++;
     document.querySelector('#smoker .score-display').textContent = score;
-    if (score === 10) {
-      messageBox.textContent = 'New High Score!';
-    }
+    if (score === 10) messageBox.textContent = 'New High Score!';
     askQuestion();
   }, 300);
 }
 
-// 4) always-Greece/LA question
+// 4) Greece↔LA question
 function askQuestion() {
   const toRad = d => d * Math.PI / 180;
   const R = 6371;
@@ -69,16 +69,16 @@ function askQuestion() {
     <button id="east">Travel East</button>
     <button id="west">Travel West</button>
   `;
-
   ['east','west'].forEach(dir => {
-    questionBox.querySelector('#'+dir)
+    questionBox.querySelector('#' + dir)
       .addEventListener('click', () => {
         questionBox.innerHTML = `<p>Are you so sure about that?</p>`;
       });
   });
 }
 
-// === Mobile touch-and-drag ===
+// === MOBILE TOUCH-AND-DRAG, drop anywhere on smoker ===
+
 function onTouchStart(e) {
   e.preventDefault();
   const touch = e.changedTouches[0];
@@ -90,8 +90,8 @@ function onTouchStart(e) {
   offsetX = touch.clientX - rect.left;
   offsetY = touch.clientY - rect.top;
 
-  target.style.position = 'fixed';
-  target.style.zIndex   = 1000;
+  dragging.style.position = 'fixed';
+  dragging.style.zIndex   = 1000;
   moveAt(touch.clientX, touch.clientY);
 
   window.addEventListener('touchmove', onTouchMove, { passive: false });
@@ -104,16 +104,20 @@ function onTouchMove(e) {
   moveAt(touch.clientX, touch.clientY);
 }
 
-function moveAt(x,y) {
-  dragging.style.left = x - offsetX + 'px';
-  dragging.style.top  = y - offsetY + 'px';
+function moveAt(x, y) {
+  dragging.style.left = (x - offsetX) + 'px';
+  dragging.style.top  = (y - offsetY) + 'px';
 }
 
 function onTouchEnd(e) {
   e.preventDefault();
   const touch = e.changedTouches[0];
+
+  // temporarily let pointer-events through to underlying smoker
+  dragging.style.pointerEvents = 'none';
   const dropTarget = document.elementFromPoint(touch.clientX, touch.clientY)
                             .closest('.dropzone');
+  dragging.style.pointerEvents = '';
 
   if (dropTarget === smoker && dragging) {
     feedSmoker(dragging);
