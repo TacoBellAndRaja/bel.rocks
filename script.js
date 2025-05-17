@@ -1,122 +1,80 @@
-const ITEMS = [
-  { icon: '🍗', cookable: true },
-  { icon: '🍔', cookable: true },
-  { icon: '🌭', cookable: true },
-  { icon: '🥩', cookable: true },
-  { icon: '🥓', cookable: true },
-  { icon: '🐱', cookable: false }  // cats shouldn’t go on grill or smoker
+// simple city list with lat/lon
+const CITIES = [
+  {name:'New York', lat:40.7128, lon:-74.0060},
+  {name:'London',    lat:51.5074, lon:-0.1278},
+  {name:'Tokyo',     lat:35.6895, lon:139.6917},
+  {name:'Sydney',    lat:-33.8688, lon:151.2093},
+  {name:'Cairo',     lat:30.0444, lon:31.2357},
+  {name:'Rio de Janeiro', lat:-22.9068, lon:-43.1729}
 ];
 
-const queueEl   = document.getElementById('queue');
-const grillEl   = document.getElementById('grill');
-const smokerEl  = document.getElementById('smoker');
-const trayEl    = document.getElementById('tray');
-const scoreEl   = document.getElementById('score');
+const queue = document.getElementById('queue');
+const smoker = document.getElementById('smoker');
+const genBtn = document.getElementById('genRibs');
+const questionBox = document.getElementById('question');
 
-let score = 0;
-let dragging = null, offsetX = 0, offsetY = 0;
+let ribCount = 0;
 
-// create a new queue item
-function makeItem() {
-  const { icon, cookable } = ITEMS[Math.floor(Math.random() * ITEMS.length)];
-  const div = document.createElement('div');
-  div.className = 'meat-item';
-  div.textContent = icon;
-  div.draggable = true;
-  div.dataset.status   = cookable ? 'raw' : 'no-cook';
-  div.dataset.cookable = cookable;
-  div.id = 'i' + Date.now() + Math.random().toString(36).slice(2);
-
-  div.addEventListener('dragstart', e => {
-    e.dataTransfer.setData('text/plain', div.id);
+// Drag-start
+function makeRib() {
+  const rib = document.createElement('div');
+  rib.className = 'rib';
+  rib.textContent = '🍖';
+  rib.draggable = true;
+  rib.id = 'rib' + (++ribCount);
+  rib.addEventListener('dragstart', e => {
+    e.dataTransfer.setData('text/plain', rib.id);
   });
-  div.addEventListener('touchstart', onTouchStart);
-
-  queueEl.appendChild(div);
+  queue.appendChild(rib);
 }
 
-// spawn up to 5 items, every 2s
-setInterval(() => {
-  if (queueEl.children.length < 5) makeItem();
-}, 2000);
-makeItem(); makeItem(); makeItem();
-
-// universal drop logic
-[grillEl, smokerEl, trayEl].forEach(zone => {
-  zone.addEventListener('dragover', e => e.preventDefault());
-  zone.addEventListener('drop', e => {
-    e.preventDefault();
-    const id = e.dataTransfer.getData('text/plain');
-    const item = document.getElementById(id);
-    if (!item) return;
-
-    // Grill or Smoker
-    if ((zone === grillEl || zone === smokerEl)
-        && item.dataset.status === 'raw') {
-      const cookTime = zone === grillEl ? 3000 : 8000;
-      zone.appendChild(item);
-      item.dataset.status = 'cooking';
-      item.classList.add('cooking');
-      setTimeout(() => {
-        item.dataset.status = 'done';
-        item.classList.remove('cooking');
-        item.classList.add('done');
-      }, cookTime);
-    }
-    // Tray
-    else if (zone === trayEl && item.dataset.status === 'done') {
-      trayEl.appendChild(item);
-      score += 10;
-      scoreEl.textContent = 'Score: ' + score;
-      setTimeout(() => trayEl.removeChild(item), 300);
-    }
-  });
+// Drop on smoker
+smoker.addEventListener('dragover', e => e.preventDefault());
+smoker.addEventListener('drop', e => {
+  e.preventDefault();
+  const id = e.dataTransfer.getData('text/plain');
+  const rib = document.getElementById(id);
+  if (!rib) return;
+  // “feed” smoker
+  smoker.appendChild(rib);
+  setTimeout(() => {
+    rib.remove();
+    askQuestion();
+  }, 300);  // small delay to simulate “eating”
 });
 
-// Touch-to-drag for mobile
-function onTouchStart(e) {
-  const touch = e.changedTouches[0];
-  const target = document.elementFromPoint(touch.clientX, touch.clientY);
-  if (target && target.classList.contains('meat-item')) {
-    dragging = target;
-    const rect = target.getBoundingClientRect();
-    offsetX = touch.clientX - rect.left;
-    offsetY = touch.clientY - rect.top;
-    target.classList.add('dragging');
-    target.style.position = 'fixed';
-    target.style.zIndex = 1000;
-    moveAt(touch.clientX, touch.clientY);
-    window.addEventListener('touchmove', onTouchMove, { passive: false });
-    window.addEventListener('touchend',  onTouchEnd);
-    e.preventDefault();
+// question logic
+function askQuestion() {
+  // pick two distinct
+  let [a,b] = [0,0];
+  while(a===b) {
+    a = Math.floor(Math.random() * CITIES.length);
+    b = Math.floor(Math.random() * CITIES.length);
   }
+  const cityA = CITIES[a], cityB = CITIES[b];
+  // haversine distance
+  const R = 6371;
+  const toRad = d => d * Math.PI/180;
+  const dLat = toRad(cityB.lat - cityA.lat);
+  const dLon = toRad(cityB.lon - cityA.lon);
+  const φ1 = toRad(cityA.lat), φ2 = toRad(cityB.lat);
+  const u = Math.sin(dLat/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(dLon/2)**2;
+  const dist = 2 * R * Math.atan2(Math.sqrt(u), Math.sqrt(1-u));
+  // show prompt
+  questionBox.classList.remove('hidden');
+  questionBox.innerHTML = `
+    <p>Distance between <strong>${cityA.name}</strong> and <strong>${cityB.name}</strong> is <em>${dist.toFixed(0)} km</em>.</p>
+    <p>Which direction is faster to travel: east or west?</p>
+    <button id="east">Travel East</button>
+    <button id="west">Travel West</button>
+  `;
+  ['east','west'].forEach(dir => {
+    questionBox.querySelector('#'+dir)
+      .addEventListener('click', () => {
+        questionBox.innerHTML = `<p>Are you so sure about that?</p>`;
+      });
+  });
 }
 
-function onTouchMove(e) {
-  const touch = e.changedTouches[0];
-  moveAt(touch.clientX, touch.clientY);
-  e.preventDefault();
-}
-
-function moveAt(x, y) {
-  dragging.style.left = x - offsetX + 'px';
-  dragging.style.top  = y - offsetY + 'px';
-}
-
-function onTouchEnd(e) {
-  const touch = e.changedTouches[0];
-  const dropZone = document.elementFromPoint(touch.clientX, touch.clientY)
-                         .closest('.dropzone');
-  if (dropZone) {
-    dropZone.dispatchEvent(new DragEvent('drop', {
-      dataTransfer: { getData: () => dragging.id }
-    }));
-  }
-  dragging.classList.remove('dragging');
-  dragging.style.position = '';
-  dragging.style.left     = '';
-  dragging.style.top      = '';
-  window.removeEventListener('touchmove', onTouchMove);
-  window.removeEventListener('touchend',  onTouchEnd);
-  dragging = null;
-}
+// wiring
+genBtn.addEventListener('click', makeRib);
