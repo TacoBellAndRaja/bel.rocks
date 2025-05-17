@@ -12,19 +12,13 @@ body {
   z-index:100;
 }
 h1 { margin: 20px 0 10px }
-button {
-  padding: 8px 16px;
-  font-size: 1em;
-  margin-bottom: 20px;
-  cursor: pointer;
-}
 
 #game {
   display: flex;
   justify-content: center;
   align-items: flex-start;
   gap: 40px;
-  margin-bottom: 30px;
+  margin-bottom: 10px;
 }
 .zone {
   background: #333;
@@ -38,17 +32,37 @@ button {
 #queue h2, #smoker h2 { margin-bottom: 10px; font-size: 1em }
 .dropzone { background: transparent; border: none; }
 
+/* auto-spawned ribs */
 .rib {
-  font-size: 4em;        /* doubled from 2em */
+  font-size: 4em;
   margin: 5px;
   cursor: grab;
   display: inline-block;
 }
 
-.hidden { display: none }
+/* score display on smoker */
+#smoker .score-display {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 1.2em;
+  font-weight: bold;
+  z-index: 4;
+}
 
+/* “New High Score!” message */
+#message {
+  margin-top: 10px;
+  font-size: 1.2em;
+  color: #ff0;
+  font-weight: bold;
+}
+
+/* quiz box */
+.hidden { display: none }
 #question {
-  max-width: 600px; margin: 0 auto;
+  max-width: 600px; margin: 20px auto;
   background: #333; border: 2px solid #555;
   border-radius: 8px; padding: 20px;
 }
@@ -99,12 +113,10 @@ button {
   z-index:3;
   animation: munch 1s infinite ease-in-out;
 }
-/* mouth open/close */
 @keyframes munch {
   0%,100% { border-bottom-width:4px; }
   50%     { border-bottom-width:14px; }
 }
-/* caption pulses */
 #smoker .caption {
   position:absolute; top:200px; left:50%;
   transform:translateX(-50%);
