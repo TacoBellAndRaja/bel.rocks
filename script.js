@@ -1,35 +1,33 @@
-// hard-coded pair: Athens (Greece) ↔ Los Angeles
+// fixed cities: Athens↔Los Angeles
 const CITY_A = { name: 'Athens, Greece', lat: 37.9838, lon: 23.7275 };
 const CITY_B = { name: 'Los Angeles, USA', lat: 34.0522, lon: -118.2437 };
 
 const queue       = document.getElementById('queue');
 const smoker      = document.getElementById('smoker');
-const genBtn      = document.getElementById('genRibs');
+const messageBox  = document.getElementById('message');
 const questionBox = document.getElementById('question');
 
 let ribCount = 0;
 let dragging = null, offsetX = 0, offsetY = 0;
+let score    = 0;
 
-// 1) generate a draggable rib
+// 1) auto-spawn ribs every 2s, max 5 in queue
 function makeRib() {
+  if (queue.children.length >= 5) return;
   const rib = document.createElement('div');
   rib.className = 'rib';
   rib.textContent = '🍖';
   rib.draggable = true;
   rib.id = 'rib' + (++ribCount);
-
-  // desktop dragstart
   rib.addEventListener('dragstart', e => {
     e.dataTransfer.setData('text/plain', rib.id);
   });
-
-  // mobile touchstart
   rib.addEventListener('touchstart', onTouchStart, { passive: false });
-
   queue.appendChild(rib);
 }
+setInterval(makeRib, 2000);
 
-// 2) desktop drop on smoker
+// 2) desktop drop handler
 smoker.addEventListener('dragover', e => e.preventDefault());
 smoker.addEventListener('drop', e => {
   e.preventDefault();
@@ -39,24 +37,29 @@ smoker.addEventListener('drop', e => {
   feedSmoker(rib);
 });
 
-// helper to “feed” the smoker
+// 3) feeding & scoring
 function feedSmoker(rib) {
   smoker.appendChild(rib);
   setTimeout(() => {
     rib.remove();
+    score++;
+    document.querySelector('#smoker .score-display').textContent = score;
+    if (score === 10) {
+      messageBox.textContent = 'New High Score!';
+    }
     askQuestion();
-  }, 300); // brief chew
+  }, 300);
 }
 
-// 3) ask the fixed Greece↔LA question
+// 4) always-Greece/LA question
 function askQuestion() {
-  // compute haversine distance
-  const toRad = d => d * Math.PI/180;
+  const toRad = d => d * Math.PI / 180;
   const R = 6371;
   const dLat = toRad(CITY_B.lat - CITY_A.lat);
   const dLon = toRad(CITY_B.lon - CITY_A.lon);
   const φ1 = toRad(CITY_A.lat), φ2 = toRad(CITY_B.lat);
-  const a = Math.sin(dLat/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(dLon/2)**2;
+  const a = Math.sin(dLat/2)**2 +
+            Math.cos(φ1)*Math.cos(φ2)*Math.sin(dLon/2)**2;
   const dist = 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 
   questionBox.classList.remove('hidden');
@@ -75,12 +78,7 @@ function askQuestion() {
   });
 }
 
-// 4) wiring for “Generate Rack of Ribs”
-genBtn.addEventListener('click', makeRib);
-
-
-// === MOBILE TOUCH-AND-DRAG HANDLERS ===
-
+// === Mobile touch-and-drag ===
 function onTouchStart(e) {
   e.preventDefault();
   const touch = e.changedTouches[0];
@@ -117,15 +115,12 @@ function onTouchEnd(e) {
   const dropTarget = document.elementFromPoint(touch.clientX, touch.clientY)
                             .closest('.dropzone');
 
-  // if we dropped on the smoker, feed it immediately
   if (dropTarget === smoker && dragging) {
     feedSmoker(dragging);
   } else {
-    // otherwise snap back
     queue.appendChild(dragging);
   }
 
-  // cleanup
   dragging.style.position = '';
   dragging.style.left     = '';
   dragging.style.top      = '';
