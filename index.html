@@ -2,37 +2,239 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Cook ’em With Kindness</title>
-  <link rel="stylesheet" href="styles.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Recognition Wall Prototype</title>
+  <style>
+    /* --- Vars and reset --- */
+    :root {
+      --primary: #004b93;
+      --accent: #ff8200;
+      --bg-light: #f4f6f8;
+      --text-dark: #333;
+      --radius: 8px;
+      --shadow: 0 2px 5px rgba(0,0,0,0.1);
+      --font: 'Segoe UI', sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font); background: var(--bg-light); color: var(--text-dark); }
+
+    /* --- Top bar --- */
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--primary);
+      color: white;
+      padding: 1rem 2rem;
+      box-shadow: var(--shadow);
+    }
+    .logo { font-size: 1.2rem; font-weight: bold; }
+    .user-info { font-size: 0.9rem; }
+
+    /* --- Layout --- */
+    .container { display: flex; gap: 1.5rem; padding: 2rem; }
+
+    /* --- Recognition wall --- */
+    .recognition-wall {
+      flex: 3;
+      background: white;
+      padding: 1.5rem;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+    .recognition-wall h2 { margin-bottom: 1rem; color: var(--primary); }
+    .entries { display: flex; flex-direction: column-reverse; gap: 1rem; max-height: 70vh; overflow-y: auto; }
+    .entry {
+      position: relative;
+      background: white;
+      border-left: 4px solid var(--accent);
+      padding: 1rem;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      animation: fadeIn 0.5s ease;
+    }
+    .entry .meta { font-size: 0.8rem; color: #666; margin-bottom: 0.5rem; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    /* --- Like button --- */
+    .like-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 1rem;
+      margin-top: 0.5rem;
+      display: flex;
+      align-items: center;
+    }
+    .like-btn.liked span { color: var(--accent); }
+    .like-btn span { margin-left: 0.25rem; }
+
+    /* --- Sidebar --- */
+    .sidebar { flex: 1; display: flex; flex-direction: column; gap: 1rem; }
+    .btn { padding: 0.6rem 1rem; border: none; border-radius: var(--radius); cursor: pointer; font-size: 1rem; }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-success { background: var(--accent); color: white; }
+    .hidden { display: none; }
+
+    .form {
+      background: white;
+      padding: 1rem;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .form label { font-size: 0.9rem; }
+    .form select, .form input {
+      width: 100%;
+      padding: 0.5rem;
+      border: 1px solid #ccc;
+      border-radius: var(--radius);
+    }
+    #balance { margin-top: 0.5rem; font-weight: bold; }
+
+    .examples { display: none; }
+  </style>
 </head>
 <body>
-  <div id="banner">
-    oh heavens – there is some weather coming, do you have the guts?
-  </div>
-  <h1>Cook ’em With Kindness</h1>
+  <!-- Top bar -->
+  <header class="top-bar">
+    <div class="logo">Albertsons Companies</div>
+    <div class="user-info">Logged in as <strong>Roger Bel</strong></div>
+  </header>
 
-  <div id="game">
-    <div id="queue" class="zone">
-      <h2>Queue</h2>
-    </div>
-
-    <div id="smoker" class="zone dropzone">
-      <div class="score-display">0</div>
-      <div class="lid"></div>
-      <div class="body"></div>
-      <div class="eyes">
-        <div class="eye left"></div>
-        <div class="eye right"></div>
+  <!-- Main content -->
+  <main class="container">
+    <!-- Recognition Wall -->
+    <section class="recognition-wall">
+      <h2>Recognition Wall</h2>
+      <div id="entries" class="entries">
+        <!-- Bootstrapped entries -->
       </div>
-      <div class="mouth"></div>
-      <div class="caption">I am so hungry</div>
-      <h2>Feed me ribs!</h2>
-    </div>
-  </div>
+    </section>
 
-  <div id="message"></div>
-  <div id="question" class="hidden"></div>
+    <!-- Sidebar with button/form -->
+    <aside class="sidebar">
+      <button id="toggle-btn" class="btn btn-primary">Recognize!</button>
+      <form id="recognition-form" class="form hidden">
+        <label>To:
+          <select id="recipient">
+            <option value="">-- Select Employee --</option>
+            <option>Alice Johnson</option>
+            <option>Brian Smith</option>
+            <option>Carla Green</option>
+            <option>David Lee</option>
+            <option>Eva Martinez</option>
+            <option>Frank Wang</option>
+            <option>Grace Kim</option>
+            <option>Hector Ruiz</option>
+            <option>Isaac Clark</option>
+            <option>Julia Patel</option>
+          </select>
+        </label>
 
-  <script src="script.js"></script>
+        <label>Category:
+          <select id="category">
+            <option value="">-- Choose Category --</option>
+            <option>We Put People First</option>
+            <option>We Are One Team</option>
+            <option>We Are Customer Driven</option>
+            <option>We Raise The Bar</option>
+            <option>We Act as Owners</option>
+            <option>We Build Belonging</option>
+            <option>We Value Different Perspectives</option>
+            <option>We Are Committed to a Healthy Future</option>
+          </select>
+        </label>
+
+        <label>Rewards to Gift:
+          <input id="amount" type="number" min="1" />
+        </label>
+
+        <div id="balance">Remaining Reward Balance: <span id="rem">5</span></div>
+        <button type="submit" class="btn btn-success">Send Recognition</button>
+      </form>
+    </aside>
+  </main>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const entriesDiv = document.getElementById('entries');
+      const toggleBtn = document.getElementById('toggle-btn');
+      const form = document.getElementById('recognition-form');
+      const balanceSpan = document.getElementById('rem');
+      let balance = 5;
+      const currentUser = 'Roger Bel';
+
+      // Bootstrapped data
+      const initialData = [
+        {to:'Alice Johnson',cat:'We Are One Team',date:'2025-05-20'},
+        {to:'Brian Smith',cat:'We Raise The Bar',date:'2025-05-19'},
+        {to:'Carla Green',cat:'We Put People First',date:'2025-05-18'},
+        {to:'David Lee',cat:'We Act as Owners',date:'2025-05-17'},
+        {to:'Eva Martinez',cat:'We Build Belonging',date:'2025-05-16'},
+        {to:'Frank Wang',cat:'We Value Different Perspectives',date:'2025-05-15'},
+        {to:'Grace Kim',cat:'We Are Customer Driven',date:'2025-05-14'},
+        {to:'Hector Ruiz',cat:'We Commit to a Healthy Future',date:'2025-05-13'},
+        {to:'Isaac Clark',cat:'We Are One Team',date:'2025-05-12'},
+        {to:'Julia Patel',cat:'We Raise The Bar',date:'2025-05-11'},
+        {to:'Alice Johnson',cat:'We Put People First',date:'2025-05-10'},
+        {to:'Brian Smith',cat:'We Act as Owners',date:'2025-05-09'},
+        {to:'Carla Green',cat:'We Build Belonging',date:'2025-05-08'},
+        {to:'David Lee',cat:'We Value Different Perspectives',date:'2025-05-07'},
+        {to:'Eva Martinez',cat:'We Are Customer Driven',date:'2025-05-06'},
+        {to:'Frank Wang',cat:'We Commit to a Healthy Future',date:'2025-05-05'}
+      ];
+
+      const renderEntry = ({to,cat,date}) => {
+        const entry = document.createElement('div');
+        entry.className = 'entry';
+        entry.innerHTML = 
+          `<div class="meta">${date} &bull; from <strong>${currentUser}</strong></div>` +
+          `<div><strong>${to}</strong> got <em>${cat}</em> 🎉</div>` +
+          `<button class="like-btn">👍 <span>0</span></button>`;
+        entriesDiv.prepend(entry);
+      };
+
+      // Load initial
+      initialData.forEach(d => renderEntry(d));
+
+      // toggle form
+      toggleBtn.addEventListener('click', () => form.classList.toggle('hidden'));
+
+      // like handler
+      document.body.addEventListener('click', e => {
+        if (e.target.closest('.like-btn')) {
+          const btn = e.target.closest('.like-btn');
+          const span = btn.querySelector('span');
+          let count = parseInt(span.textContent,10);
+          if (btn.classList.contains('liked')) {
+            btn.classList.remove('liked'); span.textContent = count-1;
+          } else {
+            btn.classList.add('liked'); span.textContent = count+1;
+          }
+        }
+      });
+
+      // form submit
+      form.addEventListener('submit', e => {
+        e.preventDefault();
+        const to = document.getElementById('recipient').value;
+        const cat = document.getElementById('category').value;
+        const amt = parseInt(document.getElementById('amount').value,10);
+        if (!to||!cat||!amt||amt<1) return alert('Please complete all fields.');
+        if (to===currentUser) return alert("Can't recognize yourself!");
+        if (amt>balance) return alert('Not enough rewards.');
+        const today = new Date().toISOString().split('T')[0];
+        renderEntry({to,cat,date:today});
+        balance -= amt; balanceSpan.textContent = balance;
+        form.reset(); form.classList.add('hidden');
+      });
+    });
+  </script>
 </body>
 </html>
