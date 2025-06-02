@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <title>Roger &amp; Chloe – Candy, Flying &amp; Underwater Phases with Mobile Joysticks</title>
+  <title>Roger &amp; Chloe – Candy, Flying &amp; Underwater with Fixed Level 3 Collection</title>
   <style>
     html, body {
       margin: 0;
@@ -43,6 +43,11 @@
       border-bottom: 2px solid #0f0;
       padding-bottom: 4px;
     }
+    .currentScore {
+      text-align: center;
+      font-size: 16px;
+      margin-bottom: 8px;
+    }
     .sidebar ul {
       list-style: none;
       padding: 0;
@@ -63,6 +68,18 @@
       flex-direction: column;
       align-items: center;
       position: relative;
+    }
+    #cheats {
+      width: 800px;
+      display: flex;
+      justify-content: center;
+      margin: 10px 0;
+    }
+    #cheats button {
+      margin: 0 10px;
+      padding: 6px 12px;
+      font-size: 14px;
+      cursor: pointer;
     }
     #gameContainer {
       position: relative;
@@ -88,16 +105,22 @@
       margin-top: 4px;
       text-shadow: 1px 1px 0 #050;
     }
+    /* Joystick container, placed below gameCanvas */
+    #joysticksContainer {
+      width: 800px;
+      display: flex;
+      justify-content: space-between;
+      margin-top: 10px;
+    }
     .joystick {
       display: none;
-      position: absolute;
-      bottom: 10px;
       width: 150px;
       height: 150px;
       background: rgba(255, 255, 255, 0.2);
       border: 2px solid #888;
       border-radius: 50%;
       touch-action: none;
+      position: relative;
     }
     .knob {
       position: absolute;
@@ -109,8 +132,6 @@
       transform: translate(-25px, -25px);
       pointer-events: none;
     }
-    #joystickLeft { left: 10px; }
-    #joystickRight { right: 10px; }
     .sidebar::-webkit-scrollbar {
       width: 8px;
     }
@@ -129,12 +150,19 @@
   <div id="wrapper">
     <div id="leftSidebar" class="sidebar">
       <h3>Roger Levels</h3>
+      <div id="rogerCurrent" class="currentScore"></div>
       <ul id="rogerLevels"></ul>
     </div>
     <div id="centerArea">
+      <div id="cheats">
+        <button data-level="1">Cheat: Level 1</button>
+        <button data-level="2">Cheat: Level 2</button>
+        <button data-level="3">Cheat: Level 3</button>
+      </div>
       <div id="gameContainer">
         <canvas id="gameCanvas" width="800" height="600"></canvas>
-        <!-- Joystick elements, hidden by default -->
+      </div>
+      <div id="joysticksContainer">
         <div id="joystickLeft" class="joystick"><div class="knob"></div></div>
         <div id="joystickRight" class="joystick"><div class="knob"></div></div>
       </div>
@@ -142,6 +170,7 @@
     </div>
     <div id="rightSidebar" class="sidebar">
       <h3>Chloe Levels</h3>
+      <div id="chloeCurrent" class="currentScore"></div>
       <ul id="chloeLevels"></ul>
     </div>
   </div>
@@ -153,9 +182,12 @@
       const W      = canvas.width;
       const H      = canvas.height;
 
-      const leftList  = document.getElementById("rogerLevels");
-      const rightList = document.getElementById("chloeLevels");
+      const leftList      = document.getElementById("rogerLevels");
+      const rightList     = document.getElementById("chloeLevels");
+      const rogerCurrent  = document.getElementById("rogerCurrent");
+      const chloeCurrent  = document.getElementById("chloeCurrent");
       const powerUpDescDiv = document.getElementById("powerUpDesc");
+      const cheatsDiv     = document.getElementById("cheats");
 
       let phase1Logged = false;
       let phase2Logged = false;
@@ -172,12 +204,6 @@
         { x: 100, y: H - 70,  width: 300, height: 20, color: "#664400", vx: 1 },
         { x: 250, y: H - 200, width: 200, height: 15, color: "#664400", vx: 1.5 },
         { x: 400, y: H - 300, width: 240, height: 15, color: "#664400", vx: 2 },
-      ];
-
-      const platforms = [
-        { x: 100, y: 350, width: 200, height: 10, color: "#228B22" },
-        { x: 400, y: 250, width: 180, height: 10, color: "#228B22" },
-        { x: 250, y: 150, width: 220, height: 10, color: "#228B22" },
       ];
 
       const keys = {
@@ -202,13 +228,6 @@
 
       let megaSpeedActive   = false;
       let megaSpeedTimer    = 0;
-      let slowCandyActive   = false;
-      let slowCandyTimer    = 0;
-      let hurricaneActive   = false;
-      let hurricaneTimer    = 0;
-      let hurricaneCount    = 0;
-      const HURRICANE_DURATION = 1800;
-      const HURRICANE_TOTAL   = 100;
 
       let flyingMode       = false;
       let tetherActive     = false;
@@ -225,65 +244,54 @@
 
       let rainbowActive    = false;
       let rainbowTimer     = 0;
-      let gravityActive    = false;
-      let gravityTimer     = 0;
-      let magnetActive     = false;
-      let magnetTimer      = 0;
-      const magnetRadius   = 150;
-      let cloudBounceActive= false;
-      let cloudBounceTimer = 0;
       let hazeActive       = false;
       let hazeTimer        = 0;
-      let compassActive    = false;
-      let compassTimer     = 0;
-      let mooncloakActive  = false;
-      let mooncloakTimer   = 0;
       let turboActive      = false;
       let turboTimer       = 0;
-      let nebulaActive     = false;
-      let nebulaTimer      = 0;
 
       // LEVEL 3: underwater entities
-      const seaweeds      = [];
-      const fishes        = [];
-      const crabs         = [];
-      const treasures     = [];
+      const jellyfishes    = [];
+      const octopuses      = [];
+      const seaweeds       = [];
+      const fishes         = [];
+      const crabs          = [];
+      const treasures      = [];
+      const babySharks     = [];
+      const goldCoins      = [];
       let level3ScoreRoger = 0;
       let level3ScoreChloe = 0;
+      let bigSharkMode     = false;
 
       const powerUpDescriptions = {
-        holdHands: "HOLD HANDS: Pause and link hands, both gain points from each candy.",
+        holdHands:        "HOLD HANDS: Pause and link hands, both gain points from each candy.",
         stopHoldingHands: "STOP HANDS: Release from hold-hands mode.",
-        megaSpeed: "MEGA SPEED: Double speed for 10s.",
-        slowCandy: "SLOW CANDY: Candy falls at half speed for 10s.",
-        candyHurricane: "CANDY HURRICANE: 100 rapid candies over 30s.",
-        rainbowBoost: "RAINBOW BOOST: 1.5× flying speed & double points for 10s.",
-        gravityShield: "GRAVITY SHIELD: Freeze all flying items for 8s.",
-        magnetFeather: "MAGNET FEATHER: Attract collectibles within radius for 10s.",
-        cloudBounce: "CLOUD BOUNCE: Bounce off clouds for 7s.",
-        windTunnel: "WIND TUNNEL: Instant upward boost +5 points.",
-        starfieldBurst: "STARFIELD BURST: +2 bonus points from nearby collectibles.",
-        moonlightCloak: "MOONLIGHT CLOAK: +50% points & avoid obstacles for 10s.",
-        turboTrail: "TURBO TRAIL: +30% forward movement for 8s, then flame ring.",
-        nebulaStorm: "NEBULA STORM: Extra collectibles 5s; items slow 3s.",
-        crystalCompass: "CRYSTAL COMPASS: Arrow to nearest high-value collectible.",
-        tether: "TETHER: Bind both players and share points together for 10s.",
-        treasureHunt: "TREASURE: Collect to gain points in the deep sea!"
+        megaSpeed:        "MEGA SPEED: Double speed for 10s.",
+        tether:           "TETHER: Bind both players and share points together for 10s.",
+        rainbowBoost:     "RAINBOW BOOST: 1.5× flying speed & double points for 10s.",
+        babyShark:        "BABY SHARK: Transform into a big shark that chomps fish!",
+        jellyfish:        "JELLYFISH: Just a colorful sea friend.",
+        octopus:          "OCTOPUS: Eight legs of cuteness.",
+        treasure:         "TREASURE: Chest releases gold. Players and crabs can collect!",
+        goldCoin:         "GOLD COIN: Collect for points!"
       };
 
       class Character {
         constructor(name, color, startX, controls) {
-          this.name      = name;
-          this.baseColor = color;
-          this.width     = 40;
-          this.height    = 60;
-          this.x         = startX;
-          this.y         = H - this.height;
-          this.vx        = 0;
-          this.vy        = 0;
-          this.scoreCandy    = 0;
-          this.scoreFlying   = 0;
-          this.controls  = controls;
+          this.name         = name;
+          this.baseColor    = color;
+          this.width        = 40;
+          this.height       = 60;
+          this.x            = startX;
+          this.y            = H - this.height;
+          this.vx           = 0;
+          this.vy           = 0;
+          this.scoreCandy   = 0;
+          this.scoreFlying  = 0;
+          this.controls     = controls;
+          // Shark properties
+          this.sharkScale   = 1;
+          this.sharkBaseW   = 80;
+          this.sharkBaseH   = 40;
         }
 
         update(other, joystick) {
@@ -341,10 +349,11 @@
         }
 
         draw() {
-          if (!level3Started) {
-            let fillStyle = this.baseColor;
+          if (!level3Started || !bigSharkMode) {
+            // Normal character drawing
+            let fillStyle   = this.baseColor;
             let strokeStyle = null;
-            if (this.scoreCandy >= 10 || this.scoreFlying >= 10) {
+            if (this.scoreCandy >= 10 || this.scoreFlying >= 10 || level3ScoreRoger >= 10 || level3ScoreChloe >= 10) {
               const grad = ctx.createLinearGradient(
                 this.x, this.y, this.x, this.y + this.height
               );
@@ -355,13 +364,13 @@
               grad.addColorStop(0.68, "blue");
               grad.addColorStop(0.85, "indigo");
               grad.addColorStop(1, "violet");
-              fillStyle = grad;
+              fillStyle   = grad;
               strokeStyle = this.name === "Roger" ? "#0000ff" : "#ff1493";
             }
-            ctx.fillStyle = fillStyle;
+            ctx.fillStyle   = fillStyle;
             ctx.fillRect(this.x, this.y, this.width, this.height);
             if (strokeStyle) {
-              ctx.lineWidth = 4;
+              ctx.lineWidth   = 4;
               ctx.strokeStyle = strokeStyle;
               ctx.strokeRect(this.x, this.y, this.width, this.height);
             }
@@ -389,25 +398,25 @@
             ctx.fillRect(mouthX, mouthY, mouthW, mouthH);
 
             // Pinwheel hat if level ≥15
-            if (this.scoreCandy >= 15 || this.scoreFlying >= 15) {
+            if (this.scoreCandy >= 15 || this.scoreFlying >= 15 || level3ScoreRoger >= 15 || level3ScoreChloe >= 15) {
               const centerX = this.x + this.width / 2;
               const centerY = this.y;
               const radius  = this.width / 2;
               ctx.beginPath();
-              ctx.fillStyle = "#fff";
+              ctx.fillStyle   = "#fff";
               ctx.strokeStyle = "#000";
-              ctx.lineWidth = 2;
+              ctx.lineWidth   = 2;
               ctx.arc(centerX, centerY, radius, Math.PI, 0);
               ctx.fill();
               ctx.stroke();
 
-              const pinColor = (this.scoreCandy >= 20 || this.scoreFlying >= 20) ? "gold" : "red";
+              const pinColor = (this.scoreCandy >= 20 || this.scoreFlying >= 20 || level3ScoreRoger >= 20 || level3ScoreChloe >= 20) ? "gold" : "red";
               ctx.save();
               ctx.translate(centerX, centerY - radius * 0.5);
               ctx.rotate(pinwheelAngle);
               ctx.strokeStyle = pinColor;
-              ctx.lineWidth = 4;
-              const armLen = radius * 0.8;
+              ctx.lineWidth   = 4;
+              const armLen    = radius * 0.8;
               ctx.beginPath();
               ctx.moveTo(-armLen, -armLen);
               ctx.lineTo(armLen, armLen);
@@ -417,35 +426,54 @@
               ctx.restore();
             }
           } else {
-            // Draw submarine for level 3
+            // Big shark drawing with chomping jaw
+            const w = this.sharkBaseW * this.sharkScale;
+            const h = this.sharkBaseH * this.sharkScale;
             ctx.save();
             ctx.translate(this.x, this.y);
-            // Submarine body
+
+            // Body
             ctx.fillStyle = this.baseColor;
             ctx.beginPath();
-            ctx.ellipse(this.width/2, this.height/2, this.width/2, this.height/3, 0, 0, 2*Math.PI);
+            ctx.moveTo(0, h / 2);
+            ctx.quadraticCurveTo(w / 2, -h / 4, w, h / 2);
+            ctx.quadraticCurveTo(w / 2, h + h / 4, 0, h / 2);
             ctx.fill();
-            // Conning tower
-            ctx.fillRect(this.width*0.35, this.height*0.1, this.width*0.3, this.height*0.3);
-            // Porthole
+
+            // Tail
+            ctx.beginPath();
+            ctx.moveTo(0, h / 2);
+            ctx.lineTo(-w * 0.2, h * 0.2);
+            ctx.lineTo(-w * 0.2, h * 0.7);
+            ctx.closePath();
+            ctx.fill();
+
+            // Eye
+            ctx.fillStyle = "#fff";
+            ctx.beginPath();
+            ctx.arc(w * 0.75, h * 0.3, 5 * this.sharkScale, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.fillStyle = "#000";
+            ctx.beginPath();
+            ctx.arc(w * 0.75, h * 0.3, 2 * this.sharkScale, 0, 2 * Math.PI);
+            ctx.fill();
+
+            // Chomping mouth
+            const mouthOffset = (Math.sin(frameCount * 0.4) + 1) / 2 * (h * 0.1);
+            const y1 = h * 0.6 - mouthOffset / 2;
+            const y2 = h * 0.6 + mouthOffset / 2;
+            ctx.fillStyle = "#fff";
+            ctx.beginPath();
+            ctx.moveTo(w * 0.4, y1);
+            ctx.lineTo(w * 0.8, y1);
+            ctx.lineTo(w * 0.8, y2);
+            ctx.lineTo(w * 0.4, y2);
+            ctx.closePath();
+            ctx.fill();
             ctx.strokeStyle = "#000";
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(this.width/2, this.height/2, this.width*0.15, 0, 2*Math.PI);
-            ctx.fillStyle = "#87CEEB";
-            ctx.fill();
+            ctx.lineWidth   = 2;
             ctx.stroke();
-            // Propeller
-            ctx.strokeStyle = "#333";
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.moveTo(0, this.height/2);
-            ctx.lineTo(-this.width*0.2, this.height/2 - this.height*0.1);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(0, this.height/2);
-            ctx.lineTo(-this.width*0.2, this.height/2 + this.height*0.1);
-            ctx.stroke();
+
             ctx.restore();
           }
         }
@@ -466,38 +494,38 @@
         draw() {
           let wrapperColor;
           switch (this.type) {
-            case "holdHands":         wrapperColor = "#FF69B4"; break;
-            case "stopHoldingHands":  wrapperColor = "#888888"; break;
-            case "megaSpeed":         wrapperColor = "#FFD700"; break;
-            case "slowCandy":         wrapperColor = "#87CEEB"; break;
-            case "candyHurricane":    wrapperColor = "#CE93D8"; break;
-            case "tether":            wrapperColor = "#ADFF2F"; break;
-            default:                  wrapperColor = "#D2691E";
+            case "holdHands":        wrapperColor = "#FF69B4"; break;
+            case "stopHoldingHands": wrapperColor = "#888888"; break;
+            case "megaSpeed":        wrapperColor = "#FFD700"; break;
+            case "tether":           wrapperColor = "#ADFF2F"; break;
+            case "rainbowBoost":     wrapperColor = "violet"; break;
+            case "babyShark":        wrapperColor = "#00BFFF"; break;
+            default:                 wrapperColor = "#D2691E";
           }
           ctx.fillStyle = wrapperColor;
           ctx.fillRect(this.x, this.y, this.width, this.height);
           ctx.strokeStyle = "#000";
-          ctx.lineWidth = 2;
+          ctx.lineWidth   = 2;
           ctx.strokeRect(this.x, this.y, this.width, this.height);
           ctx.fillStyle = "rgba(255,255,255,0.3)";
           for (let i = 10; i < this.width; i += 20) {
             ctx.fillRect(this.x + i, this.y, 10, this.height);
           }
           ctx.fillStyle = "#000";
-          ctx.font = "12px Courier New, monospace";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
+          ctx.font          = "12px Courier New, monospace";
+          ctx.textAlign     = "center";
+          ctx.textBaseline  = "middle";
           let lines = [];
           switch (this.type) {
             case "holdHands":        lines = ["HOLD HANDS"]; break;
             case "stopHoldingHands": lines = ["STOP HANDS"]; break;
             case "megaSpeed":        lines = ["MEGA SPEED"]; break;
-            case "slowCandy":        lines = ["SLOW CANDY"]; break;
-            case "candyHurricane":   lines = ["CANDY", "HURRICANE"]; break;
             case "tether":           lines = ["TETHER"]; break;
+            case "rainbowBoost":     lines = ["RAINBOW", "BOOST"]; break;
+            case "babyShark":        lines = ["BABY", "SHARK"]; break;
           }
           const lineHeight = 14;
-          const startY = this.y + (this.height - lines.length * lineHeight) / 2 + lineHeight / 2;
+          const startY     = this.y + (this.height - lines.length * lineHeight) / 2 + lineHeight / 2;
           for (let i = 0; i < lines.length; i++) {
             ctx.fillText(lines[i], this.x + this.width / 2, startY + i * lineHeight);
           }
@@ -533,7 +561,6 @@
         update() {
           if (!isCelebrating && !flyingMode && !level3Started) {
             let speed = this.vy;
-            if (slowCandyActive) speed *= 0.5;
             this.y += speed;
           }
         }
@@ -554,7 +581,7 @@
             ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
             ctx.fill();
             ctx.strokeStyle = "#fff";
-            ctx.lineWidth = 2;
+            ctx.lineWidth   = 2;
             ctx.beginPath();
             ctx.moveTo(this.x - this.radius / 2, this.y);
             ctx.lineTo(this.x + this.radius / 2, this.y);
@@ -566,7 +593,7 @@
             ctx.fillStyle = this.color;
             ctx.fillRect(this.x - w / 2, this.y - h / 2, w, h);
             ctx.strokeStyle = "#000";
-            ctx.lineWidth = 1;
+            ctx.lineWidth   = 1;
             ctx.beginPath();
             ctx.moveTo(this.x - w / 2 + 5, this.y - h / 2);
             ctx.lineTo(this.x - w / 2 + 5, this.y + h / 2);
@@ -595,44 +622,57 @@
           this.vx     = 0;
         }
         update() {
-          if (!gravityActive && !level3Started) {
+          if (!level3Started) {
             this.y += this.vy;
             this.x += this.vx;
-          }
-          if (hazeActive) {
-            this.y += this.vy * 0.6 - this.vy;
-            this.x += this.vx * 0.6 - this.vx;
           }
         }
         draw() {
           if (this.type === "fairy") {
+            // Draw a small winged fairy
+            const cx = this.x;
+            const cy = this.y;
+            const r = this.radius;
+            // Body
             ctx.fillStyle = "#FFD700";
-            const cx = this.x, cy = this.y, r = this.radius;
             ctx.beginPath();
-            for (let i = 0; i < 5; i++) {
-              const theta = (i * 2 * Math.PI) / 5 - Math.PI / 2;
-              const x1 = cx + Math.cos(theta) * r;
-              const y1 = cy + Math.sin(theta) * r;
-              const theta2 = theta + Math.PI / 5;
-              const x2 = cx + Math.cos(theta2) * (r / 2);
-              const y2 = cy + Math.sin(theta2) * (r / 2);
-              if (i === 0) ctx.moveTo(x1, y1);
-              else ctx.lineTo(x1, y1);
-              ctx.lineTo(x2, y2);
-            }
-            ctx.closePath();
+            ctx.arc(cx, cy, r * 0.3, 0, 2 * Math.PI);
+            ctx.fill();
+            // Wings
+            ctx.fillStyle = "rgba(255,255,255,0.7)";
+            ctx.beginPath();
+            ctx.ellipse(cx - r * 0.4, cy, r * 0.4, r * 0.2, Math.PI / 4, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.ellipse(cx + r * 0.4, cy, r * 0.4, r * 0.2, -Math.PI / 4, 0, 2 * Math.PI);
             ctx.fill();
           } else if (this.type === "unicorn") {
+            // Draw a simple unicorn head
+            const cx = this.x;
+            const cy = this.y;
+            // Face
             ctx.fillStyle = "#FFFFFF";
             ctx.beginPath();
-            ctx.arc(this.x, this.y, this.radius, 0, 2 * Math.PI);
+            ctx.arc(cx, cy, this.radius, 0, 2 * Math.PI);
             ctx.fill();
+            // Horn
             ctx.fillStyle = "#FFD700";
             ctx.beginPath();
-            ctx.moveTo(this.x, this.y - this.radius);
-            ctx.lineTo(this.x - 10, this.y - this.radius - 30);
-            ctx.lineTo(this.x + 10, this.y - this.radius - 30);
+            ctx.moveTo(cx, cy - this.radius);
+            ctx.lineTo(cx - 5, cy - this.radius - 20);
+            ctx.lineTo(cx + 5, cy - this.radius - 20);
             ctx.closePath();
+            ctx.fill();
+            // Eye
+            ctx.fillStyle = "#000";
+            ctx.beginPath();
+            ctx.arc(cx + this.radius * 0.3, cy - this.radius * 0.2, 3, 0, 2 * Math.PI);
+            ctx.fill();
+            // Mane tuft
+            ctx.fillStyle = "#FF69B4";
+            ctx.beginPath();
+            ctx.moveTo(cx - this.radius * 0.5, cy - this.radius * 0.2);
+            ctx.quadraticCurveTo(cx - this.radius * 0.6, cy - this.radius * 0.8, cx, cy - this.radius * 0.5);
             ctx.fill();
           } else if (this.type === "icecream") {
             ctx.fillStyle = "#DEB887";
@@ -705,33 +745,39 @@
         }
         draw() {
           if (this.type === "fairy") {
-            ctx.fillStyle = "#FFD700";
             const cx = this.x, cy = this.y, r = this.radius;
+            ctx.fillStyle = "#FFD700";
             ctx.beginPath();
-            for (let i = 0; i < 5; i++) {
-              const theta = (i * 2 * Math.PI) / 5 - Math.PI / 2;
-              const x1 = cx + Math.cos(theta) * r;
-              const y1 = cy + Math.sin(theta) * r;
-              const theta2 = theta + Math.PI / 5;
-              const x2 = cx + Math.cos(theta2) * (r / 2);
-              const y2 = cy + Math.sin(theta2) * (r / 2);
-              if (i === 0) ctx.moveTo(x1, y1);
-              else ctx.lineTo(x1, y1);
-              ctx.lineTo(x2, y2);
-            }
-            ctx.closePath();
+            ctx.arc(cx, cy, r * 0.3, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.fillStyle = "rgba(255,255,255,0.7)";
+            ctx.beginPath();
+            ctx.ellipse(cx - r * 0.4, cy, r * 0.4, r * 0.2, Math.PI / 4, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.ellipse(cx + r * 0.4, cy, r * 0.4, r * 0.2, -Math.PI / 4, 0, 2 * Math.PI);
             ctx.fill();
           } else if (this.type === "unicorn") {
+            const cx = this.x, cy = this.y;
             ctx.fillStyle = "#FFFFFF";
             ctx.beginPath();
-            ctx.arc(this.x, this.y, this.radius, 0, 2 * Math.PI);
+            ctx.arc(cx, cy, this.radius, 0, 2 * Math.PI);
             ctx.fill();
             ctx.fillStyle = "#FFD700";
             ctx.beginPath();
-            ctx.moveTo(this.x, this.y - this.radius);
-            ctx.lineTo(this.x - 10, this.y - this.radius - 30);
-            ctx.lineTo(this.x + 10, this.y - this.radius - 30);
+            ctx.moveTo(cx, cy - this.radius);
+            ctx.lineTo(cx - 5, cy - this.radius - 20);
+            ctx.lineTo(cx + 5, cy - this.radius - 20);
             ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = "#000";
+            ctx.beginPath();
+            ctx.arc(cx + this.radius * 0.3, cy - this.radius * 0.2, 3, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.fillStyle = "#FF69B4";
+            ctx.beginPath();
+            ctx.moveTo(cx - this.radius * 0.5, cy - this.radius * 0.2);
+            ctx.quadraticCurveTo(cx - this.radius * 0.6, cy - this.radius * 0.8, cx, cy - this.radius * 0.5);
             ctx.fill();
           }
         }
@@ -775,168 +821,27 @@
                 ctx.stroke();
               }
               break;
-            case "gravityShield":
-              {
-                ctx.strokeStyle = "#1E90FF";
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.radius, 0, 2 * Math.PI);
-                ctx.stroke();
-                ctx.fillStyle = "rgba(135,206,250,0.3)";
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.radius, 0, 2 * Math.PI);
-                ctx.fill();
-              }
-              break;
-            case "magnetFeather":
-              {
-                ctx.strokeStyle = "#FFFFFF";
-                ctx.beginPath();
-                ctx.moveTo(this.x, this.y - this.radius);
-                ctx.quadraticCurveTo(this.x + 15, this.y, this.x, this.y + this.radius);
-                ctx.stroke();
-                ctx.strokeStyle = "#000";
-                ctx.stroke();
-              }
-              break;
-            case "cloudBounce":
-              {
-                ctx.fillStyle = "#FFFFFF";
-                ctx.beginPath();
-                ctx.ellipse(this.x, this.y, this.radius * 1.4, this.radius * 0.7, 0, 0, 2 * Math.PI);
-                ctx.fill();
-                ctx.strokeStyle = "#000";
-                ctx.stroke();
-              }
-              break;
-            case "windTunnel":
-              {
-                ctx.strokeStyle = "#FFFFFF";
-                ctx.beginPath();
-                for (let i = 0; i < 12; i++) {
-                  const angle = i * 0.5;
-                  const rad = (this.radius * i) / 12;
-                  const px = this.x + rad * Math.cos(angle);
-                  const py = this.y + rad * Math.sin(angle);
-                  if (i === 0) ctx.moveTo(px, py);
-                  else ctx.lineTo(px, py);
-                }
-                ctx.stroke();
-                ctx.strokeStyle = "#000";
-                ctx.stroke();
-              }
-              break;
-            case "starfieldBurst":
-              {
-                ctx.fillStyle = "#FFD700";
-                const cx = this.x, cy = this.y;
-                const r = this.radius;
-                ctx.beginPath();
-                for (let i = 0; i < 5; i++) {
-                  const theta = (i * 2 * Math.PI) / 5 - Math.PI / 2;
-                  const x1 = cx + Math.cos(theta) * r;
-                  const y1 = cy + Math.sin(theta) * r;
-                  const theta2 = theta + Math.PI / 5;
-                  const x2 = cx + Math.cos(theta2) * (r / 2);
-                  const y2 = cy + Math.sin(theta2) * (r / 2);
-                  if (i === 0) ctx.moveTo(x1, y1);
-                  else ctx.lineTo(x1, y1);
-                  ctx.lineTo(x2, y2);
-                }
-                ctx.closePath();
-                ctx.fill();
-                ctx.strokeStyle = "#000";
-                ctx.stroke();
-              }
-              break;
-            case "moonlightCloak":
-              {
-                ctx.fillStyle = "#FFFACD";
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.radius, 0.25 * Math.PI, 1.75 * Math.PI);
-                ctx.arc(this.x + 12, this.y, this.radius, 1.75 * Math.PI, 0.25 * Math.PI, true);
-                ctx.closePath();
-                ctx.fill();
-                ctx.strokeStyle = "#000";
-                ctx.stroke();
-              }
-              break;
-            case "turboTrail":
-              {
-                ctx.fillStyle = "#FF4500";
-                ctx.beginPath();
-                ctx.moveTo(this.x, this.y + this.radius);
-                ctx.lineTo(this.x - this.radius / 2, this.y - this.radius / 2);
-                ctx.lineTo(this.x + this.radius / 2, this.y - this.radius / 2);
-                ctx.closePath();
-                ctx.fill();
-                ctx.strokeStyle = "#000";
-                ctx.stroke();
-              }
-              break;
-            case "nebulaStorm":
-              {
-                ctx.fillStyle = "rgba(147,112,219,0.6)";
-                ctx.beginPath();
-                ctx.ellipse(this.x, this.y, this.radius * 1.4, this.radius, 0, 0, 2 * Math.PI);
-                ctx.fill();
-                ctx.fillStyle = "rgba(152,251,152,0.4)";
-                ctx.beginPath();
-                ctx.ellipse(this.x + 12, this.y - 12, this.radius, this.radius * 0.8, 0, 0, 2 * Math.PI);
-                ctx.fill();
-                ctx.strokeStyle = "#000";
-                ctx.stroke();
-              }
-              break;
-            case "crystalCompass":
-              {
-                ctx.fillStyle = "#E0FFFF";
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.radius, 0, 2 * Math.PI);
-                ctx.fill();
-                ctx.strokeStyle = "#000";
-                ctx.lineWidth = 3;
-                ctx.beginPath();
-                ctx.moveTo(this.x, this.y);
-                ctx.lineTo(this.x + this.radius * 0.7, this.y);
-                ctx.stroke();
-              }
-              break;
             case "tether":
               {
                 ctx.fillStyle = "#ADFF2F";
-                ctx.fillRect(this.x, this.y, this.radius * 2, this.radius);
+                ctx.fillRect(this.x - this.radius, this.y - this.radius / 2, this.radius * 2, this.radius);
                 ctx.strokeStyle = "#000";
-                ctx.lineWidth = 2;
-                ctx.strokeRect(this.x, this.y, this.radius * 2, this.radius);
-                ctx.fillStyle = "#000";
-                ctx.font = "14px Courier New, monospace";
-                ctx.textAlign = "center";
+                ctx.lineWidth   = 2;
+                ctx.strokeRect(this.x - this.radius, this.y - this.radius / 2, this.radius * 2, this.radius);
+                ctx.fillStyle    = "#000";
+                ctx.font         = "14px Courier New, monospace";
+                ctx.textAlign    = "center";
                 ctx.textBaseline = "middle";
-                ctx.fillText("TETHER", this.x + this.radius, this.y + this.radius / 2);
-              }
-              break;
-            case "treasureHunt":
-              {
-                ctx.fillStyle = "#DAA520";
-                ctx.fillRect(this.x - this.radius, this.y - this.radius/2, this.radius*2, this.radius);
-                ctx.strokeStyle = "#000";
-                ctx.lineWidth = 2;
-                ctx.strokeRect(this.x - this.radius, this.y - this.radius/2, this.radius*2, this.radius);
-                ctx.beginPath();
-                ctx.moveTo(this.x - this.radius + 5, this.y - this.radius/2 + 5);
-                ctx.lineTo(this.x + this.radius - 5, this.y - this.radius/2 + 5);
-                ctx.moveTo(this.x - this.radius + 5, this.y + this.radius/2 - 5);
-                ctx.lineTo(this.x + this.radius - 5, this.y + this.radius/2 - 5);
-                ctx.stroke();
+                ctx.fillText("TETHER", this.x, this.y);
               }
               break;
           }
         }
         checkCatch(character) {
-          const cx = this.x, cy = this.y;
-          const rx = character.x + character.width / 2;
-          const ry = character.y + character.height / 2;
-          return Math.hypot(cx - rx, cy - ry) < this.radius + Math.max(character.width, character.height) / 2;
+          const dx = this.x - (character.x + character.width / 2);
+          const dy = this.y - (character.y + character.height / 2);
+          const dist = Math.hypot(dx, dy);
+          return dist < this.radius + Math.max(character.width, character.height) / 2;
         }
       }
 
@@ -957,7 +862,7 @@
         draw() {
           if (this.life > 0) {
             ctx.strokeStyle = "rgba(255,69,0, " + (this.life / 30) + ")";
-            ctx.lineWidth = 4;
+            ctx.lineWidth   = 4;
             ctx.beginPath();
             ctx.arc(this.x, this.y, this.radius, 0, 2 * Math.PI);
             ctx.stroke();
@@ -1004,7 +909,7 @@
         }
         draw() {
           ctx.strokeStyle = "#000";
-          ctx.lineWidth = 2;
+          ctx.lineWidth   = 2;
           ctx.beginPath();
           ctx.moveTo(this.x, this.y);
           ctx.lineTo(this.x - this.size, this.y + this.size / 2);
@@ -1086,6 +991,13 @@
           ctx.closePath();
           ctx.fill();
         }
+        checkCatch(character) {
+          const fx = this.x, fy = this.y;
+          const cx = character.x + character.width/2;
+          const cy = character.y + character.height/2;
+          const dist = Math.hypot(fx - cx, fy - cy);
+          return dist < this.size + Math.max(character.width, character.height)/2;
+        }
       }
 
       class Crab {
@@ -1111,7 +1023,7 @@
           ctx.fill();
           // Legs
           ctx.strokeStyle = "#B22222";
-          ctx.lineWidth = 3;
+          ctx.lineWidth   = 3;
           for (let i = -2; i <= 2; i++) {
             const legY = this.y + Math.sin(this.phase + i)*5;
             ctx.beginPath();
@@ -1120,24 +1032,28 @@
             ctx.stroke();
           }
         }
+        checkCatch(character) {
+          const cx = character.x + character.width/2;
+          const cy = character.y + character.height/2;
+          const dist = Math.hypot(this.x - cx, this.y - cy);
+          return dist < this.size + Math.max(character.width, character.height)/2;
+        }
       }
 
       class Treasure {
         constructor() {
           this.radius = 20;
           this.x      = Math.random() * (W - this.radius*2) + this.radius;
-          this.y      = Math.random() * (H - 200) + 200;
-          this.vy     = Math.random()*1 - 0.5;
+          this.y      = H - 80;
         }
         update() {
-          this.y += this.vy;
-          if (this.y < 150 || this.y > H - 50) this.vy *= -1;
+          // stays in place
         }
         draw() {
           ctx.fillStyle = "#DAA520";
           ctx.fillRect(this.x - this.radius, this.y - this.radius/2, this.radius*2, this.radius);
           ctx.strokeStyle = "#000";
-          ctx.lineWidth = 2;
+          ctx.lineWidth   = 2;
           ctx.strokeRect(this.x - this.radius, this.y - this.radius/2, this.radius*2, this.radius);
           ctx.beginPath();
           ctx.moveTo(this.x - this.radius + 5, this.y - this.radius/2 + 5);
@@ -1146,11 +1062,120 @@
           ctx.lineTo(this.x + this.radius - 5, this.y + this.radius/2 - 5);
           ctx.stroke();
         }
-        checkCatch(character) {
-          const cx = this.x, cy = this.y;
-          const rx = character.x + character.width / 2;
-          const ry = character.y + character.height / 2;
-          return Math.hypot(cx - rx, cy - ry) < this.radius + Math.max(character.width, character.height) / 2;
+        checkCatchByPlayer(character) {
+          const cx = character.x + character.width/2;
+          const cy = character.y + character.height/2;
+          return (
+            this.x - this.radius < cx &&
+            this.x + this.radius > cx &&
+            this.y - this.radius/2 < cy &&
+            this.y + this.radius/2 > cy
+          );
+        }
+        checkCatchByCrab(crab) {
+          const cx = crab.x;
+          const cy = crab.y;
+          return (
+            this.x - this.radius < cx + crab.size &&
+            this.x + this.radius > cx - crab.size &&
+            this.y - this.radius/2 < cy + crab.size &&
+            this.y + this.radius/2 > cy - crab.size
+          );
+        }
+      }
+
+      class GoldCoin {
+        constructor(x, y) {
+          this.x      = x;
+          this.y      = y;
+          this.vy     = 2 + Math.random() * 2;
+          this.radius = 5;
+        }
+        update() {
+          this.y += this.vy;
+          this.vy += 0.2; // gravity
+        }
+        draw() {
+          ctx.fillStyle = "gold";
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.radius, 0, 2 * Math.PI);
+          ctx.fill();
+        }
+        checkCatchByCrab(crab) {
+          const dx   = this.x - crab.x;
+          const dy   = this.y - crab.y;
+          const dist = Math.hypot(dx, dy);
+          return dist < this.radius + crab.size;
+        }
+        checkCatchByPlayer(character) {
+          const cx = character.x + character.width/2;
+          const cy = character.y + character.height/2;
+          const dist = Math.hypot(this.x - cx, this.y - cy);
+          return dist < this.radius + Math.max(character.width, character.height)/2;
+        }
+      }
+
+      class Jellyfish {
+        constructor() {
+          this.x     = Math.random() * (W - 50) + 25;
+          this.baseY = Math.random() * (H * 0.5) + 50;
+          this.phase = Math.random() * Math.PI * 2;
+          this.size  = 20 + Math.random() * 10;
+          this.y     = this.baseY;
+        }
+        update() {
+          this.phase += 0.02;
+          this.y = this.baseY + Math.sin(this.phase) * 20;
+        }
+        draw() {
+          const x = this.x, y = this.y, r = this.size;
+          ctx.fillStyle = "rgba(255,182,193,0.7)";
+          ctx.beginPath();
+          ctx.arc(x, y, r, Math.PI, 0);
+          ctx.quadraticCurveTo(x + r, y + r, x, y + r);
+          ctx.quadraticCurveTo(x - r, y + r, x - r, y);
+          ctx.closePath();
+          ctx.fill();
+          for (let i = -r; i <= r; i += r / 3) {
+            ctx.beginPath();
+            ctx.moveTo(x + i, y + r);
+            ctx.lineTo(x + i * 1.2, y + r + 10);
+            ctx.strokeStyle = "rgba(255,182,193,0.5)";
+            ctx.stroke();
+          }
+        }
+      }
+
+      class Octopus {
+        constructor() {
+          this.x     = Math.random() * (W - 40);
+          this.y     = H - 90;
+          this.vx    = (Math.random() < 0.5 ? 1 : -1) * (1 + Math.random());
+          this.size  = 20 + Math.random() * 10;
+          this.phase = 0;
+        }
+        update() {
+          this.x += this.vx;
+          if (this.x <= 0 || this.x + this.size * 2 >= W) this.vx *= -1;
+          this.phase += 0.1;
+        }
+        draw() {
+          const x = this.x, y = this.y, r = this.size;
+          ctx.fillStyle = "#800080";
+          ctx.beginPath();
+          ctx.arc(x + r, y, r, Math.PI, 0);
+          ctx.fill();
+          for (let i = 0; i < 5; i++) {
+            const legX = x + r + (i - 2) * (r / 2);
+            const legY = y;
+            const wave = Math.sin(this.phase + i) * 5;
+            ctx.beginPath();
+            ctx.moveTo(legX, legY);
+            ctx.quadraticCurveTo(legX, legY + r + wave, legX, legY + r * 2);
+            ctx.strokeStyle = "#800080";
+            ctx.lineWidth   = 3;
+            ctx.stroke();
+          }
         }
       }
 
@@ -1159,12 +1184,14 @@
       for (let i = 0; i < 3; i++) planes.push(new Plane());
 
       for (let i = 0; i < 8; i++) {
-        const x = i * (W / 8) + (W / 16);
+        const x  = i * (W / 8) + (W / 16);
         const sw = new Seaweed(x, H - 10);
         seaweeds.push(sw);
       }
       for (let i = 0; i < 10; i++) fishes.push(new Fish());
       for (let i = 0; i < 5; i++) crabs.push(new Crab());
+      for (let i = 0; i < 5; i++) jellyfishes.push(new Jellyfish());
+      for (let i = 0; i < 3; i++) octopuses.push(new Octopus());
 
       const roger = new Character(
         "Roger", "#0077cc",
@@ -1177,28 +1204,22 @@
         { left: "KeyA", right: "KeyD", up: "KeyW", down: "KeyS" }
       );
 
-      const items = [];
-      let frameCount = 0;
-      const candyInterval       = 90;
-      const holdHandsInterval   = 1800;
-      const stopHoldInterval    = 800;
-      const megaSpeedInterval   = 1200;
-      const slowCandyInterval   = 1500;
-      const hurricaneInterval   = 3000;
-      const tetherInterval      = 2600;
+      const items       = [];
+      let frameCount    = 0;
+      const candyInterval     = 90;
+      const holdHandsInterval = 1800;
+      const stopHoldInterval  = 800;
+      const megaSpeedInterval = 1200;
 
+      // Phase 2 intervals
       const powerUpIntervals = {
-        rainbowBoost:    600,
-        gravityShield:   800,
-        magnetFeather:  1000,
-        cloudBounce:    1200,
-        windTunnel:     1400,
-        starfieldBurst: 1600,
-        moonlightCloak: 1800,
-        turboTrail:     2000,
-        nebulaStorm:    2200,
-        crystalCompass: 2400
+        rainbowBoost: 800,
+        tether:       1200
       };
+
+      // Level 3 spawn intervals
+      const babySharkInterval = 1500;
+      const treasureInterval  = 200;
 
       function handleCharacterCollision(a, b) {
         if (
@@ -1208,7 +1229,7 @@
           a.x + a.width > b.x &&
           a.x < b.x + b.width
         ) {
-          a.y = b.y - a.height;
+          a.y  = b.y - a.height;
           a.vy = 0;
         }
       }
@@ -1242,13 +1263,134 @@
       }
 
       function logLevel3() {
-        const liR = document.createElement("li");
-        liR.innerText = `UNDERWATER: ${level3ScoreRoger}`;
-        leftList.appendChild(liR);
-        const liC = document.createElement("li");
-        liC.innerText = `UNDERWATER: ${level3ScoreChloe}`;
-        rightList.appendChild(liC);
+        if (!phase3Logged) {
+          const liR = document.createElement("li");
+          liR.innerText = `UNDERWATER: ${level3ScoreRoger}`;
+          leftList.appendChild(liR);
+          const liC = document.createElement("li");
+          liC.innerText = `UNDERWATER: ${level3ScoreChloe}`;
+          rightList.appendChild(liC);
+          phase3Logged = true;
+        }
       }
+
+      function updateSidebarScores() {
+        if (!flyingMode && !level3Started) {
+          rogerCurrent.innerText = `CANDY: ${roger.scoreCandy}`;
+          chloeCurrent.innerText = `CANDY: ${chloe.scoreCandy}`;
+        } else if (flyingMode && !level3Started) {
+          rogerCurrent.innerText = `FLYING: ${roger.scoreFlying}`;
+          chloeCurrent.innerText = `FLYING: ${chloe.scoreFlying}`;
+        } else if (level3Started) {
+          rogerCurrent.innerText = `UNDERWATER: ${level3ScoreRoger}`;
+          chloeCurrent.innerText = `UNDERWATER: ${level3ScoreChloe}`;
+        }
+      }
+
+      function resetToLevel1() {
+        flyingMode        = false;
+        level3Started     = false;
+        bigSharkMode      = false;
+        roger.scoreCandy  = 0;
+        chloe.scoreCandy  = 0;
+        roger.scoreFlying = 0;
+        chloe.scoreFlying = 0;
+        level3ScoreRoger  = 0;
+        level3ScoreChloe  = 0;
+        phase1Logged      = false;
+        phase2Logged      = false;
+        phase3Logged      = false;
+        roger.width       = 40;
+        roger.height      = 60;
+        chloe.width       = 40;
+        chloe.height      = 60;
+        roger.baseColor   = "#0077cc";
+        chloe.baseColor   = "#ff1493";
+        roger.x           = 150;
+        roger.y           = H - roger.height;
+        chloe.x           = 200;
+        chloe.y           = H - chloe.height;
+        items.length      = 0;
+        flyingItems.length      = 0;
+        flyingPowerUps.length   = 0;
+        phase2Items.length      = 0;
+        babySharks.length       = 0;
+        treasures.length        = 0;
+        goldCoins.length        = 0;
+        fishes.length           = 0;
+        for (let i = 0; i < 10; i++) fishes.push(new Fish());
+      }
+
+      function resetToLevel2() {
+        flyingMode        = true;
+        level3Started     = false;
+        bigSharkMode      = false;
+        roger.scoreFlying = 0;
+        chloe.scoreFlying = 0;
+        level3ScoreRoger  = 0;
+        level3ScoreChloe  = 0;
+        phase2Logged      = false;
+        phase3Logged      = false;
+        roger.width       = 40;
+        roger.height      = 60;
+        chloe.width       = 40;
+        chloe.height      = 60;
+        roger.baseColor   = "#0077cc";
+        chloe.baseColor   = "#ff1493";
+        roger.x           = W * 0.3;
+        roger.y           = H * 0.5;
+        chloe.x           = W * 0.6;
+        chloe.y           = H * 0.5;
+        items.length      = 0;
+        flyingItems.length      = 0;
+        flyingPowerUps.length   = 0;
+        phase2Items.length      = 0;
+      }
+
+      function resetToLevel3() {
+        flyingMode        = true;
+        level3Started     = true;
+        bigSharkMode      = false;
+        roger.scoreFlying = 0;
+        chloe.scoreFlying = 0;
+        level3ScoreRoger  = 0;
+        level3ScoreChloe  = 0;
+        phase3Logged      = false;
+        roger.sharkScale  = 1;
+        roger.sharkBaseW  = 80;
+        roger.sharkBaseH  = 40;
+        chloe.sharkScale  = 1;
+        chloe.sharkBaseW  = 80;
+        chloe.sharkBaseH  = 40;
+        roger.width       = roger.sharkBaseW;
+        roger.height      = roger.sharkBaseH;
+        chloe.width       = chloe.sharkBaseW;
+        chloe.height      = chloe.sharkBaseH;
+        roger.baseColor   = "#0077cc";
+        chloe.baseColor   = "#ff1493";
+        roger.x           = W * 0.3;
+        roger.y           = H * 0.5;
+        chloe.x           = W * 0.6;
+        chloe.y           = H * 0.5;
+        items.length      = 0;
+        flyingItems.length      = 0;
+        flyingPowerUps.length   = 0;
+        phase2Items.length      = 0;
+        babySharks.length       = 0;
+        treasures.length        = 0;
+        goldCoins.length        = 0;
+        fishes.length           = 0;
+        for (let i = 0; i < 10; i++) fishes.push(new Fish());
+      }
+
+      cheatsDiv.addEventListener("click", e => {
+        if (e.target.tagName === "BUTTON") {
+          const lvl = parseInt(e.target.dataset.level);
+          if (lvl === 1) resetToLevel1();
+          if (lvl === 2) resetToLevel2();
+          if (lvl === 3) resetToLevel3();
+        }
+      });
 
       function renderInitial() {
         ctx.fillStyle = "#FFEFD5";
@@ -1269,7 +1411,7 @@
       // JOYSTICK IMPLEMENTATION
       const isMobile = 'ontouchstart' in window;
 
-      let joystickLeft = { dx: 0, dy: 0, active: false };
+      let joystickLeft  = { dx: 0, dy: 0, active: false };
       let joystickRight = { dx: 0, dy: 0, active: false };
 
       function setupJoystick() {
@@ -1280,8 +1422,8 @@
         jr.style.display = "block";
 
         function initJoystick(elem, state) {
-          const knob = elem.querySelector(".knob");
-          const rect = elem.getBoundingClientRect();
+          const knob   = elem.querySelector(".knob");
+          const rect   = elem.getBoundingClientRect();
           const centerX = rect.left + rect.width / 2;
           const centerY = rect.top + rect.height / 2;
           const maxDist = rect.width / 2 - 25;
@@ -1291,6 +1433,7 @@
           }
           function onTouchMove(e) {
             if (!state.active) return;
+            e.preventDefault();
             const touch = e.touches[0];
             const dx = touch.clientX - centerX;
             const dy = touch.clientY - centerY;
@@ -1302,7 +1445,7 @@
             knob.style.left = (xPos - rect.left) + "px";
             knob.style.top  = (yPos - rect.top)  + "px";
             state.dx = (Math.cos(angle) * clamped) / maxDist;
-            state.dy = (Math.sin(angle) * clamped) / maxDist * -1; // invert Y so up is negative
+            state.dy = (Math.sin(angle) * clamped) / maxDist * -1; // invert Y
           }
           function onTouchEnd(e) {
             state.active = false;
@@ -1315,7 +1458,6 @@
           elem.addEventListener("touchmove", onTouchMove);
           elem.addEventListener("touchend", onTouchEnd);
           elem.addEventListener("touchcancel", onTouchEnd);
-          // Initialize knob at center
           knob.style.left = rect.width / 2 + "px";
           knob.style.top  = rect.height / 2 + "px";
         }
@@ -1329,6 +1471,7 @@
         ctx.clearRect(0, 0, W, H);
 
         pinwheelAngle += 0.1;
+        updateSidebarScores();
 
         trampolines.forEach(t => {
           if (!flyingMode && !level3Started) {
@@ -1354,7 +1497,7 @@
         }
 
         if (isCelebrating) {
-          const targetY = H / 2 - roger.height / 2;
+          const targetY  = H / 2 - roger.height / 2;
           const targetX1 = W / 2 - roger.width - 10;
           const targetX2 = W / 2 + 10;
           roger.x += (targetX1 - roger.x) * 0.05;
@@ -1365,12 +1508,12 @@
           chloe.draw();
           celebrateTimer--;
           if (celebrateTimer <= 0) {
-            holdHands = true;
-            isCelebrating = false;
-            handSpacing = chloe.x - roger.x;
-            holdHandsItem = null;
-            messageText = "Hold Hands!";
-            messageTimer = 120;
+            holdHands      = true;
+            isCelebrating  = false;
+            handSpacing    = chloe.x - roger.x;
+            holdHandsItem  = null;
+            messageText    = "Hold Hands!";
+            messageTimer   = 120;
           }
           requestAnimationFrame(gameLoop);
           return;
@@ -1392,7 +1535,7 @@
             ctx.fillStyle = "#FFFFFF";
             ctx.fillRect(jarX, jarY, 60, 80);
             ctx.strokeStyle = "#000";
-            ctx.lineWidth = 2;
+            ctx.lineWidth   = 2;
             ctx.strokeRect(jarX, jarY, 60, 80);
             ctx.fillStyle = col;
             for (let c = 0; c < 10; c++) {
@@ -1413,10 +1556,10 @@
           });
 
           if (holdHands) {
+            const baseSpeed = megaSpeedActive ? 24 : 12;
             if (isMobile) {
-              // Use left joystick (for Roger/Chloe together)
-              const j = joystickRight; // use right joystick for movement in hold-hands
-              roger.x += j.dx * 12;
+              const j = joystickRight;
+              roger.x += j.dx * baseSpeed;
               const onGroundLH = roger.y + roger.height >= GROUND_Y;
               if (j.dy < -0.5 && onGroundLH) {
                 roger.vy = BOUNCE_VEL;
@@ -1429,8 +1572,8 @@
               chloe.vy = roger.vy;
               chloe.y  = roger.y;
             } else {
-              if (keys["ArrowLeft"])  roger.x -= 12;
-              else if (keys["ArrowRight"]) roger.x += 12;
+              if (keys["ArrowLeft"])  roger.x -= baseSpeed;
+              else if (keys["ArrowRight"]) roger.x += baseSpeed;
               const onGround = roger.y + roger.height >= GROUND_Y;
               if (onGround && keys["ArrowUp"]) {
                 roger.vy = BOUNCE_VEL;
@@ -1486,7 +1629,7 @@
             const rogerHandX = roger.x + roger.width;
             const chloeHandX = chloe.x;
             ctx.strokeStyle = "#000";
-            ctx.lineWidth = 4;
+            ctx.lineWidth   = 4;
             ctx.beginPath();
             ctx.moveTo(rogerHandX, yMid);
             ctx.lineTo(chloeHandX, yMid);
@@ -1494,7 +1637,6 @@
             ctx.fillStyle = "#000";
             ctx.fillRect(rogerHandX - 4, yMid - 4, 8, 8);
             ctx.fillRect(chloeHandX - 4, yMid - 4, 8, 8);
-
           } else {
             roger.update(chloe, isMobile ? joystickRight : null);
             chloe.update(roger, isMobile ? joystickLeft : null);
@@ -1516,12 +1658,6 @@
           }
           if (frameCount % megaSpeedInterval === 0) {
             items.push(new SpecialItem("megaSpeed"));
-          }
-          if (frameCount % slowCandyInterval === 0) {
-            items.push(new SpecialItem("slowCandy"));
-          }
-          if (!hurricaneActive && frameCount % hurricaneInterval === 0) {
-            items.push(new SpecialItem("candyHurricane"));
           }
 
           for (let i = items.length - 1; i >= 0; i--) {
@@ -1557,21 +1693,6 @@
                     megaSpeedTimer  = 600;
                     showPowerUpDescription("megaSpeed");
                     messageText = "Mega Speed!";
-                    messageTimer = 120;
-                    break;
-                  case "slowCandy":
-                    slowCandyActive = true;
-                    slowCandyTimer  = 600;
-                    showPowerUpDescription("slowCandy");
-                    messageText = "Slow Candy!";
-                    messageTimer = 120;
-                    break;
-                  case "candyHurricane":
-                    hurricaneActive = true;
-                    hurricaneTimer  = HURRICANE_DURATION;
-                    hurricaneCount  = 0;
-                    showPowerUpDescription("candyHurricane");
-                    messageText = "Candy Hurricane!";
                     messageTimer = 120;
                     break;
                 }
@@ -1634,26 +1755,12 @@
             megaSpeedTimer--;
             if (megaSpeedTimer <= 0) megaSpeedActive = false;
           }
-          if (slowCandyActive) {
-            slowCandyTimer--;
-            if (slowCandyTimer <= 0) slowCandyActive = false;
-          }
-          if (hurricaneActive) {
-            hurricaneTimer--;
-            if (hurricaneCount < HURRICANE_TOTAL && frameCount % 10 === 0) {
-              items.push(new Candy());
-              hurricaneCount++;
-            }
-            if (hurricaneTimer <= 0) {
-              hurricaneActive = false;
-            }
-          }
 
           if (messageTimer > 0) {
             messageTimer--;
             ctx.fillStyle = "#0f0";
-            ctx.font = "30px Courier New, monospace";
-            ctx.textAlign = "center";
+            ctx.font       = "30px Courier New, monospace";
+            ctx.textAlign  = "center";
             ctx.fillText(messageText, W / 2, 50);
           }
 
@@ -1680,29 +1787,23 @@
             p.draw();
           });
 
-          platforms.forEach(p => {
-            ctx.fillStyle = p.color;
-            ctx.fillRect(p.x, p.y, p.width, p.height);
-          });
-
           Object.entries(powerUpIntervals).forEach(([type, interval]) => {
             if (frameCount % interval === 0) {
               flyingPowerUps.push(new FlyingPowerUp(type));
             }
           });
           if (frameCount % 120 === 0) {
-            const types = ["fairy", "unicorn"];
+            const types = ["fairy", "unicorn", "icecream"];
             const t = types[Math.floor(Math.random() * types.length)];
             phase2Items.push(new Phase2Collectible(t));
           }
-          if (frameCount % tetherInterval === 0) {
+          if (frameCount % 2600 === 0) {
             flyingPowerUps.push(new FlyingPowerUp("tether"));
           }
 
           // Movement
           if (isMobile) {
             if (tetherActive) {
-              // Both move together via either joystick
               let mx = 0, my = 0;
               if (joystickRight.dx !== 0 || joystickRight.dy !== 0) {
                 mx = joystickRight.dx * FLY_SPEED;
@@ -1712,7 +1813,7 @@
                 my = joystickLeft.dy * FLY_SPEED;
               }
               roger.x += mx;
-              roger.y -= my; // inverted above
+              roger.y -= my;
               chloe.x += mx;
               chloe.y -= my;
             } else {
@@ -1734,7 +1835,7 @@
               chloe.y += moveY;
             } else {
               const moveFactor = hazeActive ? 0.8 : 1;
-              let speedMod = rainbowActive ? 1.5 : 1;
+              let speedMod    = rainbowActive ? 1.5 : 1;
               if (keys["ArrowLeft"])  roger.x -= FLY_SPEED * moveFactor * speedMod;
               else if (keys["ArrowRight"]) roger.x += FLY_SPEED * moveFactor * speedMod;
               if (keys["ArrowUp"])    roger.y -= FLY_SPEED * moveFactor * speedMod;
@@ -1752,29 +1853,18 @@
             if (ch.x + ch.width > W) ch.x = W - ch.width;
             if (ch.y < 0) ch.y = 0;
             if (ch.y + ch.height > H) ch.y = H - ch.height;
-            platforms.forEach(p => {
-              if (
-                ch.y + ch.height <= p.y + 5 &&
-                ch.y + ch.height + 5 >= p.y &&
-                ch.x + ch.width > p.x &&
-                ch.x < p.x + p.width
-              ) {
-                ch.y = p.y - ch.height;
-              }
-            });
           });
 
           roger.draw();
           chloe.draw();
 
-          // Draw tether line if active
           if (tetherActive) {
             const x1 = roger.x + roger.width / 2;
             const y1 = roger.y + roger.height / 2;
             const x2 = chloe.x + chloe.width / 2;
             const y2 = chloe.y + chloe.height / 2;
             ctx.strokeStyle = "#FFD700";
-            ctx.lineWidth = 4;
+            ctx.lineWidth   = 4;
             ctx.beginPath();
             ctx.moveTo(x1, y1);
             ctx.lineTo(x2, y2);
@@ -1783,14 +1873,12 @@
             if (tetherTimer <= 0) tetherActive = false;
           }
 
-          // Display Current Flying Scores at bottom
           ctx.fillStyle = "#fff";
-          ctx.font = "20px Courier New, monospace";
-          ctx.textAlign = "center";
+          ctx.font       = "20px Courier New, monospace";
+          ctx.textAlign  = "center";
           const scoreText = `FLYING SCORE →  Roger: ${roger.scoreFlying}   Chloe: ${chloe.scoreFlying}`;
           ctx.fillText(scoreText, W / 2, H - 10);
 
-          // Handle flying items
           for (let i = flyingItems.length - 1; i >= 0; i--) {
             const fitm = flyingItems[i];
             fitm.update();
@@ -1800,7 +1888,6 @@
             if (caughtR || caughtC) {
               let points = fitm.type === "unicorn" ? 3 : (fitm.type === "icecream" ? 2 : 1);
               if (rainbowActive) points *= 2;
-              if (mooncloakActive) points = Math.ceil(points * 1.5);
               if (tetherActive) {
                 roger.scoreFlying += points;
                 chloe.scoreFlying += points;
@@ -1814,7 +1901,6 @@
             }
           }
 
-          // Handle flying power-ups (and tether)
           for (let i = flyingPowerUps.length - 1; i >= 0; i--) {
             const pup = flyingPowerUps[i];
             pup.update();
@@ -1826,90 +1912,15 @@
               switch (pup.type) {
                 case "rainbowBoost":
                   rainbowActive = true;
-                  rainbowTimer = 600;
-                  messageText = "Rainbow Boost!";
-                  messageTimer = 120;
-                  break;
-                case "gravityShield":
-                  gravityActive = true;
-                  gravityTimer = 480;
-                  messageText = "Gravity Shield!";
-                  messageTimer = 120;
-                  break;
-                case "magnetFeather":
-                  magnetActive = true;
-                  magnetTimer = 600;
-                  messageText = "Magnet Feather!";
-                  messageTimer = 120;
-                  break;
-                case "cloudBounce":
-                  cloudBounceActive = true;
-                  cloudBounceTimer = 420;
-                  messageText = "Cloud Bounce!";
-                  messageTimer = 120;
-                  break;
-                case "windTunnel":
-                  [roger, chloe].forEach(ch => {
-                    if (
-                      pup.x > ch.x &&
-                      pup.x < ch.x + ch.width &&
-                      pup.y > ch.y &&
-                      pup.y < ch.y + ch.height
-                    ) {
-                      ch.y -= 200;
-                      ch.scoreFlying += 5;
-                    }
-                  });
-                  messageText = "Wind Tunnel!";
-                  messageTimer = 120;
-                  break;
-                case "starfieldBurst":
-                  [roger, chloe].forEach(ch => {
-                    flyingItems.forEach((fitm, idx) => {
-                      const dx = ch.x + ch.width / 2 - fitm.x;
-                      const dy = ch.y + ch.height / 2 - fitm.y;
-                      const dist = Math.hypot(dx, dy);
-                      if (dist < 150) {
-                        const bonus = 2;
-                        if (fitm.checkCatch(roger)) roger.scoreFlying += bonus;
-                        if (fitm.checkCatch(chloe)) chloe.scoreFlying += bonus;
-                        flyingItems.splice(idx, 1);
-                      }
-                    });
-                  });
-                  messageText = "Starfield Burst!";
-                  messageTimer = 120;
-                  break;
-                case "moonlightCloak":
-                  mooncloakActive = true;
-                  mooncloakTimer = 600;
-                  messageText = "Moonlight Cloak!";
-                  messageTimer = 120;
-                  break;
-                case "turboTrail":
-                  turboActive = true;
-                  turboTimer = 480;
-                  messageText = "Turbo Trail!";
-                  messageTimer = 120;
-                  break;
-                case "nebulaStorm":
-                  nebulaActive = true;
-                  nebulaTimer = 300;
-                  hazeActive = false;
-                  messageText = "Nebula Storm!";
-                  messageTimer = 120;
-                  break;
-                case "crystalCompass":
-                  compassActive = true;
-                  compassTimer = 600;
-                  messageText = "Crystal Compass!";
-                  messageTimer = 120;
+                  rainbowTimer  = 600;
+                  messageText   = "Rainbow Boost!";
+                  messageTimer  = 120;
                   break;
                 case "tether":
                   tetherActive = true;
-                  tetherTimer = 600;
-                  messageText = "Tether Activated!";
-                  messageTimer = 120;
+                  tetherTimer  = 600;
+                  messageText   = "Tether Activated!";
+                  messageTimer  = 120;
                   break;
               }
               flyingPowerUps.splice(i, 1);
@@ -1919,79 +1930,35 @@
             }
           }
 
-          // Handle flame rings
           for (let i = flameRings.length - 1; i >= 0; i--) {
             const fr = flameRings[i];
             fr.update();
             fr.draw();
             if (fr.life <= 0) flameRings.splice(i, 1);
             else {
-              flyingItems.forEach((fitm, idx) => {
-                const dx = fitm.x - fr.x;
-                const dy = fitm.y - fr.y;
+              floatingLoop:
+              for (let j = 0; j < flyingItems.length; j++) {
+                const fitm = flyingItems[j];
+                const dx   = fitm.x - fr.x;
+                const dy   = fitm.y - fr.y;
                 const dist = Math.hypot(dx, dy);
                 if (dist < fr.radius) {
                   roger.scoreFlying++;
                   chloe.scoreFlying++;
-                  flyingItems.splice(idx, 1);
+                  flyingItems.splice(j, 1);
+                  break floatingLoop;
                 }
-              });
+              }
             }
           }
 
-          // Cloud bounce
-          if (cloudBounceActive) {
-            clouds.forEach(c => {
-              [roger, chloe].forEach(ch => {
-                const cx = c.x, cy = c.y;
-                const rx = ch.x + ch.width/2, ry = ch.y + ch.height/2;
-                const dist = Math.hypot(rx - cx, ry - cy);
-                if (dist < c.height/2 + ch.height/2) {
-                  ch.y -= 50;
-                }
-              });
-            });
-          }
-
-          // Nebula
-          if (nebulaActive) {
-            nebulaTimer--;
-            if (frameCount % 30 === 0) {
-              const types = ["fairy", "unicorn", "icecream"];
-              const t = types[Math.floor(Math.random() * types.length)];
-              flyingItems.push(new FlyingItem(t));
-            }
-            if (nebulaTimer <= 0) {
-              nebulaActive = false;
-              hazeActive = true;
-              hazeTimer = 180;
-            }
-          }
           if (hazeActive) {
             hazeTimer--;
             if (hazeTimer <= 0) hazeActive = false;
           }
-
-          // Timers
           if (rainbowActive) {
             rainbowTimer--;
             if (rainbowTimer <= 0) rainbowActive = false;
-          }
-          if (gravityActive) {
-            gravityTimer--;
-            if (gravityTimer <= 0) gravityActive = false;
-          }
-          if (magnetActive) {
-            magnetTimer--;
-            if (magnetTimer <= 0) magnetActive = false;
-          }
-          if (cloudBounceActive) {
-            cloudBounceTimer--;
-            if (cloudBounceTimer <= 0) cloudBounceActive = false;
-          }
-          if (mooncloakActive) {
-            mooncloakTimer--;
-            if (mooncloakTimer <= 0) mooncloakActive = false;
           }
           if (turboActive) {
             turboTimer--;
@@ -2001,45 +1968,7 @@
               flameRings.push(new FlameRing(chloe.x + chloe.width / 2, chloe.y + chloe.height / 2));
             }
           }
-          if (compassActive) {
-            compassTimer--;
-            if (compassTimer <= 0) compassActive = false;
-          }
 
-          // Crystal compass arrow
-          if (compassActive) {
-            [roger, chloe].forEach(ch => {
-              let nearest = null;
-              let minDist = Infinity;
-              flyingItems.forEach(fitm => {
-                if (fitm.type === "unicorn" || fitm.type === "icecream") {
-                  const dx = fitm.x - (ch.x + ch.width / 2);
-                  const dy = fitm.y - (ch.y + ch.height / 2);
-                  const dist = Math.hypot(dx, dy);
-                  if (dist < minDist) {
-                    minDist = dist;
-                    nearest = fitm;
-                  }
-                }
-              });
-              if (nearest) {
-                const dx = nearest.x - (ch.x + ch.width / 2);
-                const dy = nearest.y - (ch.y + ch.height / 2);
-                const angle = Math.atan2(dy, dx);
-                ctx.strokeStyle = "#000";
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                ctx.moveTo(ch.x + ch.width / 2, ch.y + ch.height / 2);
-                ctx.lineTo(
-                  ch.x + ch.width / 2 + Math.cos(angle) * 30,
-                  ch.y + ch.height / 2 + Math.sin(angle) * 30
-                );
-                ctx.stroke();
-              }
-            });
-          }
-
-          // Phase2 collectibles (unicorn/fairy)
           for (let i = phase2Items.length - 1; i >= 0; i--) {
             const itm = phase2Items[i];
             itm.update();
@@ -2047,7 +1976,7 @@
             const caughtR = itm.checkCatch(roger);
             const caughtC = itm.checkCatch(chloe);
             if (caughtR || caughtC) {
-              let points = itm.type === "unicorn" ? 3 : 1;
+              let points = itm.type === "unicorn" ? 3 : (itm.type === "icecream" ? 2 : 1);
               if (rainbowActive) points *= 2;
               if (tetherActive) {
                 roger.scoreFlying += points;
@@ -2062,6 +1991,7 @@
 
         } else if (level3Started) {
           // LEVEL 3: Underwater
+
           ctx.fillStyle = "#1E90FF";
           ctx.fillRect(0, 0, W, H);
 
@@ -2072,11 +2002,47 @@
           // Draw seaweed
           seaweeds.forEach(sw => sw.draw());
 
-          // Draw fishes
-          fishes.forEach(f => {
+          // Draw jellyfish & octopus
+          jellyfishes.forEach(j => { j.update(); j.draw(); });
+          octopuses.forEach(o => { o.update(); o.draw(); });
+
+          // Draw, update fishes, and handle collection
+          for (let i = fishes.length - 1; i >= 0; i--) {
+            const f = fishes[i];
             f.update();
             f.draw();
-          });
+            // Check collection by Roger
+            if (f.checkCatch(roger)) {
+              level3ScoreRoger++;
+              level3ScoreChloe++;
+              fishes.splice(i, 1);
+              continue;
+            }
+            // Check collection by Chloe
+            if (f.checkCatch(chloe)) {
+              level3ScoreRoger++;
+              level3ScoreChloe++;
+              fishes.splice(i, 1);
+              continue;
+            }
+            // If shark mode, allow chomping (double points)
+            if (bigSharkMode) {
+              const fx = f.x, fy = f.y;
+              const rx = roger.x + (roger.sharkBaseW * roger.sharkScale) / 2;
+              const ry = roger.y + (roger.sharkBaseH * roger.sharkScale) / 2;
+              const distR = Math.hypot(fx - rx, fy - ry);
+              const cx = chloe.x + (chloe.sharkBaseW * chloe.sharkScale) / 2;
+              const cy = chloe.y + (chloe.sharkBaseH * chloe.sharkScale) / 2;
+              const distC = Math.hypot(fx - cx, fy - cy);
+              const sharkRadius = Math.max(roger.sharkBaseW * roger.sharkScale, roger.sharkBaseH * roger.sharkScale) / 2;
+              if (distR < f.size + sharkRadius || distC < f.size + sharkRadius) {
+                // Fish eaten by shark (double)
+                level3ScoreRoger += 2;
+                level3ScoreChloe += 2;
+                fishes.splice(i, 1);
+              }
+            }
+          }
 
           // Draw crabs
           crabs.forEach(c => {
@@ -2084,28 +2050,112 @@
             c.draw();
           });
 
-          // Spawn treasures occasionally
-          if (frameCount % 200 === 0) {
+          // Spawn baby shark occasionally
+          if (frameCount % babySharkInterval === 0) {
+            babySharks.push(new SpecialItem("babyShark"));
+          }
+
+          // Update & draw baby shark items
+          for (let i = babySharks.length - 1; i >= 0; i--) {
+            const bs = babySharks[i];
+            bs.update();
+            bs.draw();
+            if (bs.checkCatch(roger) || bs.checkCatch(chloe)) {
+              bigSharkMode = true;
+              roger.sharkScale   = 1;
+              roger.sharkBaseW   = 80;
+              roger.sharkBaseH   = 40;
+              roger.width        = roger.sharkBaseW;
+              roger.height       = roger.sharkBaseH;
+              roger.baseColor    = "#0077cc";
+              chloe.sharkScale   = 1;
+              chloe.sharkBaseW   = 80;
+              chloe.sharkBaseH   = 40;
+              chloe.width        = chloe.sharkBaseW;
+              chloe.height       = chloe.sharkBaseH;
+              chloe.baseColor    = "#ff1493";
+              showPowerUpDescription("babyShark");
+              babySharks.splice(i, 1);
+            }
+          }
+
+          // Spawn treasure chest occasionally
+          if (frameCount % treasureInterval === 0) {
             treasures.push(new Treasure());
           }
 
-          // Update & draw treasures
+          // Update & draw treasures; allow player or crab to collect
           for (let i = treasures.length - 1; i >= 0; i--) {
             const tr = treasures[i];
             tr.update();
             tr.draw();
-            if (tr.checkCatch(roger)) {
+            let collected = false;
+            // Check collection by Roger
+            if (tr.checkCatchByPlayer(roger)) {
               level3ScoreRoger += 5;
-              treasures.splice(i, 1);
-              showPowerUpDescription("treasureHunt");
-            } else if (tr.checkCatch(chloe)) {
               level3ScoreChloe += 5;
+              collected = true;
+            }
+            // Check collection by Chloe
+            if (!collected && tr.checkCatchByPlayer(chloe)) {
+              level3ScoreRoger += 5;
+              level3ScoreChloe += 5;
+              collected = true;
+            }
+            // Check collection by any crab
+            if (!collected) {
+              for (const c of crabs) {
+                if (tr.checkCatchByCrab(c)) {
+                  collected = true;
+                  break;
+                }
+              }
+            }
+            if (collected) {
+              showPowerUpDescription("treasure");
+              // Spawn gold coins
+              for (let n = 0; n < 20; n++) {
+                const offsetX = (Math.random() * 40) - 20;
+                goldCoins.push(new GoldCoin(tr.x + offsetX, tr.y));
+              }
               treasures.splice(i, 1);
-              showPowerUpDescription("treasureHunt");
             }
           }
 
-          // Move submarines freely
+          // Update & draw gold coins; check collection by crab or player
+          for (let i = goldCoins.length - 1; i >= 0; i--) {
+            const gc = goldCoins[i];
+            gc.update();
+            gc.draw();
+            let taken = false;
+            // By crab
+            for (const c of crabs) {
+              if (gc.checkCatchByCrab(c)) {
+                taken = true;
+                break;
+              }
+            }
+            // By Roger
+            if (!taken && gc.checkCatchByPlayer(roger)) {
+              level3ScoreRoger++;
+              level3ScoreChloe++;
+              taken = true;
+            }
+            // By Chloe
+            if (!taken && gc.checkCatchByPlayer(chloe)) {
+              level3ScoreRoger++;
+              level3ScoreChloe++;
+              taken = true;
+            }
+            if (taken) {
+              goldCoins.splice(i, 1);
+            } else if (gc.y + gc.radius > H - 50) {
+              // Remove if it hits sea floor
+              goldCoins.splice(i, 1);
+            }
+          }
+
+          // Move players/submarines
           if (isMobile) {
             roger.x += joystickRight.dx * 2;
             roger.y -= joystickRight.dy * 2;
@@ -2134,18 +2184,14 @@
           roger.draw();
           chloe.draw();
 
-          // Log level 3 scores once
-          if (!phase3Logged) {
-            logLevel3();
-            phase3Logged = true;
-          }
+          logLevel3();
         }
 
         if (messageTimer > 0) {
           messageTimer--;
           ctx.fillStyle = "#0f0";
-          ctx.font = "30px Courier New, monospace";
-          ctx.textAlign = "center";
+          ctx.font       = "30px Courier New, monospace";
+          ctx.textAlign  = "center";
           ctx.fillText(messageText, W / 2, 50);
         }
         requestAnimationFrame(gameLoop);
