@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <title>Roger &amp; Chloe – Candy, Flying &amp; Underwater Phases with Tether</title>
+  <title>Roger &amp; Chloe – Candy, Flying &amp; Underwater Phases with Mobile Joysticks</title>
   <style>
     html, body {
       margin: 0;
@@ -13,13 +13,15 @@
       overflow: hidden;
       height: 100vh;
       display: flex;
+      flex-direction: column;
       align-items: center;
-      justify-content: center;
+      justify-content: flex-start;
     }
     #wrapper {
       display: flex;
       width: 1000px;
       height: 700px;
+      position: relative;
     }
     .sidebar {
       width: 150px;
@@ -60,6 +62,7 @@
       display: flex;
       flex-direction: column;
       align-items: center;
+      position: relative;
     }
     #gameContainer {
       position: relative;
@@ -85,19 +88,29 @@
       margin-top: 4px;
       text-shadow: 1px 1px 0 #050;
     }
-    .touch-zone {
+    .joystick {
+      display: none;
       position: absolute;
       bottom: 10px;
-      width: 80px;
-      height: 80px;
-      opacity: 0.25;
+      width: 150px;
+      height: 150px;
+      background: rgba(255, 255, 255, 0.2);
+      border: 2px solid #888;
+      border-radius: 50%;
       touch-action: none;
-      z-index: 10;
     }
-    #chloe-left  { left:  10%; background: #ff1493; }
-    #chloe-right { left:  25%; background: #ff1493; }
-    #roger-left  { left:  65%; background: #0077cc; }
-    #roger-right { left:  80%; background: #0077cc; }
+    .knob {
+      position: absolute;
+      width: 50px;
+      height: 50px;
+      background: rgba(200, 200, 200, 0.8);
+      border: 2px solid #444;
+      border-radius: 50%;
+      transform: translate(-25px, -25px);
+      pointer-events: none;
+    }
+    #joystickLeft { left: 10px; }
+    #joystickRight { right: 10px; }
     .sidebar::-webkit-scrollbar {
       width: 8px;
     }
@@ -121,10 +134,9 @@
     <div id="centerArea">
       <div id="gameContainer">
         <canvas id="gameCanvas" width="800" height="600"></canvas>
-        <div id="chloe-left"  class="touch-zone"></div>
-        <div id="chloe-right" class="touch-zone"></div>
-        <div id="roger-left"  class="touch-zone"></div>
-        <div id="roger-right" class="touch-zone"></div>
+        <!-- Joystick elements, hidden by default -->
+        <div id="joystickLeft" class="joystick"><div class="knob"></div></div>
+        <div id="joystickRight" class="joystick"><div class="knob"></div></div>
       </div>
       <div id="powerUpDesc"></div>
     </div>
@@ -274,18 +286,26 @@
           this.controls  = controls;
         }
 
-        update(other) {
+        update(other, joystick) {
           if (isCelebrating || holdHands || flyingMode || level3Started) return;
 
           let speed = 12;
           if (megaSpeedActive) speed *= 2;
-          if (keys[this.controls.left])      this.vx = -speed;
-          else if (keys[this.controls.right]) this.vx = speed;
-          else this.vx = 0;
-          this.x += this.vx;
 
-          const onGround = this.y + this.height >= GROUND_Y;
-          if (onGround && keys[this.controls.up]) {
+          // Use joystick input if present (mobile), else use keys
+          let moveX = 0, wantJump = false;
+          if (joystick) {
+            moveX = joystick.dx * speed;
+            if (joystick.dy < -0.5 && this.y + this.height >= GROUND_Y) wantJump = true;
+          } else {
+            if (keys[this.controls.left])      moveX = -speed;
+            else if (keys[this.controls.right]) moveX = speed;
+            if (keys[this.controls.up] && this.y + this.height >= GROUND_Y) wantJump = true;
+          }
+          this.vx = moveX;
+          this.x  += this.vx;
+
+          if (wantJump) {
             this.vy = BOUNCE_VEL;
             this.y  = GROUND_Y - this.height;
           }
@@ -469,12 +489,12 @@
           ctx.textBaseline = "middle";
           let lines = [];
           switch (this.type) {
-            case "holdHands":     lines = ["HOLD HANDS"]; break;
+            case "holdHands":        lines = ["HOLD HANDS"]; break;
             case "stopHoldingHands": lines = ["STOP HANDS"]; break;
-            case "megaSpeed":     lines = ["MEGA SPEED"]; break;
-            case "slowCandy":     lines = ["SLOW CANDY"]; break;
-            case "candyHurricane":lines = ["CANDY", "HURRICANE"]; break;
-            case "tether":        lines = ["TETHER"]; break;
+            case "megaSpeed":        lines = ["MEGA SPEED"]; break;
+            case "slowCandy":        lines = ["SLOW CANDY"]; break;
+            case "candyHurricane":   lines = ["CANDY", "HURRICANE"]; break;
+            case "tether":           lines = ["TETHER"]; break;
           }
           const lineHeight = 14;
           const startY = this.y + (this.height - lines.length * lineHeight) / 2 + lineHeight / 2;
@@ -1106,7 +1126,7 @@
         constructor() {
           this.radius = 20;
           this.x      = Math.random() * (W - this.radius*2) + this.radius;
-          this.y      = Math.random() * (H - 200) + 200; // floating mid-screen
+          this.y      = Math.random() * (H - 200) + 200;
           this.vy     = Math.random()*1 - 0.5;
         }
         update() {
@@ -1246,6 +1266,64 @@
         chloe.draw();
       }
 
+      // JOYSTICK IMPLEMENTATION
+      const isMobile = 'ontouchstart' in window;
+
+      let joystickLeft = { dx: 0, dy: 0, active: false };
+      let joystickRight = { dx: 0, dy: 0, active: false };
+
+      function setupJoystick() {
+        if (!isMobile) return;
+        const jl = document.getElementById("joystickLeft");
+        const jr = document.getElementById("joystickRight");
+        jl.style.display = "block";
+        jr.style.display = "block";
+
+        function initJoystick(elem, state) {
+          const knob = elem.querySelector(".knob");
+          const rect = elem.getBoundingClientRect();
+          const centerX = rect.left + rect.width / 2;
+          const centerY = rect.top + rect.height / 2;
+          const maxDist = rect.width / 2 - 25;
+
+          function onTouchStart(e) {
+            state.active = true;
+          }
+          function onTouchMove(e) {
+            if (!state.active) return;
+            const touch = e.touches[0];
+            const dx = touch.clientX - centerX;
+            const dy = touch.clientY - centerY;
+            const dist = Math.hypot(dx, dy);
+            const angle = Math.atan2(dy, dx);
+            const clamped = Math.min(dist, maxDist);
+            const xPos = centerX + Math.cos(angle) * clamped;
+            const yPos = centerY + Math.sin(angle) * clamped;
+            knob.style.left = (xPos - rect.left) + "px";
+            knob.style.top  = (yPos - rect.top)  + "px";
+            state.dx = (Math.cos(angle) * clamped) / maxDist;
+            state.dy = (Math.sin(angle) * clamped) / maxDist * -1; // invert Y so up is negative
+          }
+          function onTouchEnd(e) {
+            state.active = false;
+            state.dx = 0;
+            state.dy = 0;
+            knob.style.left = rect.width / 2 + "px";
+            knob.style.top  = rect.height / 2 + "px";
+          }
+          elem.addEventListener("touchstart", onTouchStart);
+          elem.addEventListener("touchmove", onTouchMove);
+          elem.addEventListener("touchend", onTouchEnd);
+          elem.addEventListener("touchcancel", onTouchEnd);
+          // Initialize knob at center
+          knob.style.left = rect.width / 2 + "px";
+          knob.style.top  = rect.height / 2 + "px";
+        }
+
+        initJoystick(jl, joystickLeft);
+        initJoystick(jr, joystickRight);
+      }
+
       function gameLoop() {
         frameCount++;
         ctx.clearRect(0, 0, W, H);
@@ -1321,7 +1399,7 @@
               const cx = jarX + 10 + (c % 5) * 10;
               const cy = jarY + 20 + Math.floor(c / 5) * 20;
               ctx.beginPath();
-              ctx.arc(cx, cy, 6, 0, 2 * Math.PI);
+              ctx.arc(cx, cy, 6, 0, Math.PI * 2);
               ctx.fill();
             }
             ctx.fillStyle = "#C0C0C0";
@@ -1335,19 +1413,36 @@
           });
 
           if (holdHands) {
-            if (keys["ArrowLeft"])  roger.x -= 12;
-            else if (keys["ArrowRight"]) roger.x += 12;
-            const onGround = roger.y + roger.height >= GROUND_Y;
-            if (onGround && keys["ArrowUp"]) {
-              roger.vy = BOUNCE_VEL;
-              roger.y  = GROUND_Y - roger.height;
+            if (isMobile) {
+              // Use left joystick (for Roger/Chloe together)
+              const j = joystickRight; // use right joystick for movement in hold-hands
+              roger.x += j.dx * 12;
+              const onGroundLH = roger.y + roger.height >= GROUND_Y;
+              if (j.dy < -0.5 && onGroundLH) {
+                roger.vy = BOUNCE_VEL;
+                roger.y  = GROUND_Y - roger.height;
+                chloe.vy = roger.vy;
+                chloe.y  = roger.y;
+              }
+              roger.vy += GRAVITY;
+              roger.y  += roger.vy;
+              chloe.vy = roger.vy;
+              chloe.y  = roger.y;
+            } else {
+              if (keys["ArrowLeft"])  roger.x -= 12;
+              else if (keys["ArrowRight"]) roger.x += 12;
+              const onGround = roger.y + roger.height >= GROUND_Y;
+              if (onGround && keys["ArrowUp"]) {
+                roger.vy = BOUNCE_VEL;
+                roger.y  = GROUND_Y - roger.height;
+                chloe.vy = roger.vy;
+                chloe.y  = roger.y;
+              }
+              roger.vy += GRAVITY;
+              roger.y  += roger.vy;
               chloe.vy = roger.vy;
               chloe.y  = roger.y;
             }
-            roger.vy += GRAVITY;
-            roger.y  += roger.vy;
-            chloe.vy = roger.vy;
-            chloe.y  = roger.y;
 
             if (roger.x < 0) roger.x = 0;
             if (roger.x + roger.width > W) roger.x = W - roger.width;
@@ -1401,8 +1496,8 @@
             ctx.fillRect(chloeHandX - 4, yMid - 4, 8, 8);
 
           } else {
-            roger.update(chloe);
-            chloe.update(roger);
+            roger.update(chloe, isMobile ? joystickRight : null);
+            chloe.update(roger, isMobile ? joystickLeft : null);
             handleCharacterCollision(roger, chloe);
             handleCharacterCollision(chloe, roger);
             roger.draw();
@@ -1605,29 +1700,51 @@
           }
 
           // Movement
-          let moveX = 0, moveY = 0;
-          if (tetherActive) {
-            // if any arrow or WASD pressed, move both
-            if (keys["ArrowLeft"] || keys["KeyA"])  moveX = -FLY_SPEED;
-            else if (keys["ArrowRight"] || keys["KeyD"]) moveX = FLY_SPEED;
-            if (keys["ArrowUp"] || keys["KeyW"])    moveY = -FLY_SPEED;
-            else if (keys["ArrowDown"] || keys["KeyS"]) moveY = FLY_SPEED;
-            roger.x += moveX;
-            roger.y += moveY;
-            chloe.x += moveX;
-            chloe.y += moveY;
+          if (isMobile) {
+            if (tetherActive) {
+              // Both move together via either joystick
+              let mx = 0, my = 0;
+              if (joystickRight.dx !== 0 || joystickRight.dy !== 0) {
+                mx = joystickRight.dx * FLY_SPEED;
+                my = joystickRight.dy * FLY_SPEED;
+              } else if (joystickLeft.dx !== 0 || joystickLeft.dy !== 0) {
+                mx = joystickLeft.dx * FLY_SPEED;
+                my = joystickLeft.dy * FLY_SPEED;
+              }
+              roger.x += mx;
+              roger.y -= my; // inverted above
+              chloe.x += mx;
+              chloe.y -= my;
+            } else {
+              roger.x += joystickRight.dx * FLY_SPEED;
+              roger.y -= joystickRight.dy * FLY_SPEED;
+              chloe.x += joystickLeft.dx * FLY_SPEED;
+              chloe.y -= joystickLeft.dy * FLY_SPEED;
+            }
           } else {
-            const moveFactor = hazeActive ? 0.8 : 1;
-            let speedMod = rainbowActive ? 1.5 : 1;
-            if (keys["ArrowLeft"])  roger.x -= FLY_SPEED * moveFactor * speedMod;
-            else if (keys["ArrowRight"]) roger.x += FLY_SPEED * moveFactor * speedMod;
-            if (keys["ArrowUp"])    roger.y -= FLY_SPEED * moveFactor * speedMod;
-            else if (keys["ArrowDown"]) roger.y += FLY_SPEED * moveFactor * speedMod;
+            let moveX = 0, moveY = 0;
+            if (tetherActive) {
+              if (keys["ArrowLeft"] || keys["KeyA"])  moveX = -FLY_SPEED;
+              else if (keys["ArrowRight"] || keys["KeyD"]) moveX = FLY_SPEED;
+              if (keys["ArrowUp"] || keys["KeyW"])    moveY = -FLY_SPEED;
+              else if (keys["ArrowDown"] || keys["KeyS"]) moveY = FLY_SPEED;
+              roger.x += moveX;
+              roger.y += moveY;
+              chloe.x += moveX;
+              chloe.y += moveY;
+            } else {
+              const moveFactor = hazeActive ? 0.8 : 1;
+              let speedMod = rainbowActive ? 1.5 : 1;
+              if (keys["ArrowLeft"])  roger.x -= FLY_SPEED * moveFactor * speedMod;
+              else if (keys["ArrowRight"]) roger.x += FLY_SPEED * moveFactor * speedMod;
+              if (keys["ArrowUp"])    roger.y -= FLY_SPEED * moveFactor * speedMod;
+              else if (keys["ArrowDown"]) roger.y += FLY_SPEED * moveFactor * speedMod;
 
-            if (keys["KeyA"])  chloe.x -= FLY_SPEED * moveFactor * speedMod;
-            else if (keys["KeyD"]) chloe.x += FLY_SPEED * moveFactor * speedMod;
-            if (keys["KeyW"])    chloe.y -= FLY_SPEED * moveFactor * speedMod;
-            else if (keys["KeyS"]) chloe.y += FLY_SPEED * moveFactor * speedMod;
+              if (keys["KeyA"])  chloe.x -= FLY_SPEED * moveFactor * speedMod;
+              else if (keys["KeyD"]) chloe.x += FLY_SPEED * moveFactor * speedMod;
+              if (keys["KeyW"])    chloe.y -= FLY_SPEED * moveFactor * speedMod;
+              else if (keys["KeyS"]) chloe.y += FLY_SPEED * moveFactor * speedMod;
+            }
           }
 
           [roger, chloe].forEach(ch => {
@@ -1989,16 +2106,23 @@
           }
 
           // Move submarines freely
-          let speedMod3 = 2;
-          if (keys["ArrowLeft"])  roger.x -= speedMod3;
-          else if (keys["ArrowRight"]) roger.x += speedMod3;
-          if (keys["ArrowUp"])    roger.y -= speedMod3;
-          else if (keys["ArrowDown"]) roger.y += speedMod3;
+          if (isMobile) {
+            roger.x += joystickRight.dx * 2;
+            roger.y -= joystickRight.dy * 2;
+            chloe.x += joystickLeft.dx * 2;
+            chloe.y -= joystickLeft.dy * 2;
+          } else {
+            let speedMod3 = 2;
+            if (keys["ArrowLeft"])  roger.x -= speedMod3;
+            else if (keys["ArrowRight"]) roger.x += speedMod3;
+            if (keys["ArrowUp"])    roger.y -= speedMod3;
+            else if (keys["ArrowDown"]) roger.y += speedMod3;
 
-          if (keys["KeyA"])  chloe.x -= speedMod3;
-          else if (keys["KeyD"]) chloe.x += speedMod3;
-          if (keys["KeyW"])    chloe.y -= speedMod3;
-          else if (keys["KeyS"]) chloe.y += speedMod3;
+            if (keys["KeyA"])  chloe.x -= speedMod3;
+            else if (keys["KeyD"]) chloe.x += speedMod3;
+            if (keys["KeyW"])    chloe.y -= speedMod3;
+            else if (keys["KeyS"]) chloe.y += speedMod3;
+          }
 
           [roger, chloe].forEach(ch => {
             if (ch.x < 0) ch.x = 0;
@@ -2034,22 +2158,7 @@
         if (e.code in keys) keys[e.code] = false;
       });
 
-      function bindTouch(zoneId, keyCode) {
-        const zone = document.getElementById(zoneId);
-        zone.addEventListener("touchstart", e => {
-          e.preventDefault();
-          keys[keyCode] = true;
-        });
-        zone.addEventListener("touchend", e => {
-          e.preventDefault();
-          keys[keyCode] = false;
-        });
-      }
-      bindTouch("chloe-left",  "KeyA");
-      bindTouch("chloe-right", "KeyD");
-      bindTouch("roger-left",  "ArrowLeft");
-      bindTouch("roger-right", "ArrowRight");
-
+      setupJoystick();
       renderInitial();
       gameLoop();
     };
