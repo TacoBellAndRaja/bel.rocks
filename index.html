@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <title>Roger &amp; Chloe – Candy, Flying &amp; Underwater with Fixed Level 3 Collection</title>
+  <title>Roger &amp; Chloe – Candy, Flying &amp; Underwater (Coins &amp; Boat)</title>
   <style>
     html, body {
       margin: 0;
@@ -105,7 +105,6 @@
       margin-top: 4px;
       text-shadow: 1px 1px 0 #050;
     }
-    /* Joystick container, placed below gameCanvas */
     #joysticksContainer {
       width: 800px;
       display: flex;
@@ -177,10 +176,10 @@
 
   <script>
     window.onload = () => {
-      const canvas = document.getElementById("gameCanvas");
-      const ctx    = canvas.getContext("2d");
-      const W      = canvas.width;
-      const H      = canvas.height;
+      const canvas        = document.getElementById("gameCanvas");
+      const ctx           = canvas.getContext("2d");
+      const W             = canvas.width;
+      const H             = canvas.height;
 
       const leftList      = document.getElementById("rogerLevels");
       const rightList     = document.getElementById("chloeLevels");
@@ -189,10 +188,12 @@
       const powerUpDescDiv = document.getElementById("powerUpDesc");
       const cheatsDiv     = document.getElementById("cheats");
 
+      let stage        = "level1"; // "level1", "level2", "level3"
+      let gamePaused   = false;
+
       let phase1Logged = false;
       let phase2Logged = false;
       let phase3Logged = false;
-      let level3Started = false;
 
       const GRAVITY             = 0.5;
       const BOUNCE_VEL          = -12;
@@ -201,9 +202,9 @@
       const GROUND_Y            = H;
 
       const trampolines = [
-        { x: 100, y: H - 70,  width: 300, height: 20, color: "#664400", vx: 1 },
-        { x: 250, y: H - 200, width: 200, height: 15, color: "#664400", vx: 1.5 },
-        { x: 400, y: H - 300, width: 240, height: 15, color: "#664400", vx: 2 },
+        { x: 80,  y: H - 60,  width: 300, height: 20, color: "#664400", vx: 1 },
+        { x: 240, y: H - 180, width: 200, height: 15, color: "#664400", vx: 1.5 },
+        { x: 400, y: H - 280, width: 240, height: 15, color: "#664400", vx: 2 },
       ];
 
       const keys = {
@@ -219,8 +220,6 @@
 
       let pinwheelAngle    = 0;
       let holdHands        = false;
-      let isCelebrating    = false;
-      let celebrateTimer   = 0;
       let holdHandsItem    = null;
       let handSpacing      = 0;
       let messageText      = "";
@@ -232,6 +231,19 @@
       let flyingMode       = false;
       let tetherActive     = false;
       let tetherTimer      = 0;
+
+      let slowCandyActive  = false;
+      let slowCandyTimer   = 0;
+
+      let candyHurricaneActive = false;
+      let hurricaneTimer       = 0;
+      let hurricaneCandyCount  = 0;
+
+      let bringHands        = false;
+      let bringHandsTimer   = 0;
+      const bringHandsDuration = 60; // frames
+      let rogerStartX, rogerStartY, chloeStartX, chloeStartY;
+      let rogerDX, rogerDY, chloeDX, chloeDY;
 
       const clouds         = [];
       const birds          = [];
@@ -249,30 +261,42 @@
       let turboActive      = false;
       let turboTimer       = 0;
 
-      // LEVEL 3: underwater entities
+      // LEVEL 3 entities
       const jellyfishes    = [];
       const octopuses      = [];
       const seaweeds       = [];
       const fishes         = [];
       const crabs          = [];
       const treasures      = [];
-      const babySharks     = [];
       const goldCoins      = [];
+      const bubbles        = [];
+      const enemySharks    = [];
+      const crocodiles     = [];
       let level3ScoreRoger = 0;
       let level3ScoreChloe = 0;
       let bigSharkMode     = false;
 
+      // Boat & worm position
+      const boatY    = 20;
+      const boatW    = 120;
+      const boatH    = 20;
+      const wormX    = W / 2;
+      const wormY    = 60;
+
+      // Pre‐written descriptions for each power‐up
       const powerUpDescriptions = {
-        holdHands:        "HOLD HANDS: Pause and link hands, both gain points from each candy.",
+        holdHands:        "HOLD HANDS: Pause, float to center side-by-side, then earn candy points together.",
         stopHoldingHands: "STOP HANDS: Release from hold-hands mode.",
         megaSpeed:        "MEGA SPEED: Double speed for 10s.",
-        tether:           "TETHER: Bind both players and share points together for 10s.",
+        slowCandy:        "SLOW CANDY: All candies fall 50% slower for 10s.",
+        candyHurricane:   "CANDY HURRICANE: 100 candies over 30s!",
+        tether:           "TETHER: Bind both players & share points for 10s.",
         rainbowBoost:     "RAINBOW BOOST: 1.5× flying speed & double points for 10s.",
         babyShark:        "BABY SHARK: Transform into a big shark that chomps fish!",
-        jellyfish:        "JELLYFISH: Just a colorful sea friend.",
-        octopus:          "OCTOPUS: Eight legs of cuteness.",
-        treasure:         "TREASURE: Chest releases gold. Players and crabs can collect!",
-        goldCoin:         "GOLD COIN: Collect for points!"
+        treasure:         "TREASURE: Box floats & emits bubbles → gold coins scatter!",
+        goldCoin:         "GOLD COIN: Collect for points!",
+        enemyShark:       "Watch out: Enemy Shark!",
+        crocodile:        "Beware: Crocodile!"
       };
 
       class Character {
@@ -288,19 +312,15 @@
           this.scoreCandy   = 0;
           this.scoreFlying  = 0;
           this.controls     = controls;
-          // Shark properties
           this.sharkScale   = 1;
           this.sharkBaseW   = 80;
           this.sharkBaseH   = 40;
+          this.invincible   = 0; // frames of invincibility after enemy hit
         }
-
         update(other, joystick) {
-          if (isCelebrating || holdHands || flyingMode || level3Started) return;
-
+          if (stage !== "level1" || holdHands || bringHands) return;
           let speed = 12;
           if (megaSpeedActive) speed *= 2;
-
-          // Use joystick input if present (mobile), else use keys
           let moveX = 0, wantJump = false;
           if (joystick) {
             moveX = joystick.dx * speed;
@@ -312,14 +332,12 @@
           }
           this.vx = moveX;
           this.x  += this.vx;
-
           if (wantJump) {
             this.vy = BOUNCE_VEL;
             this.y  = GROUND_Y - this.height;
           }
           this.vy += GRAVITY;
           this.y  += this.vy;
-
           if (this.x < 0) this.x = 0;
           if (this.x + this.width > W) this.x = W - this.width;
           if (this.y + this.height > GROUND_Y) {
@@ -330,7 +348,6 @@
             this.y  = 0;
             this.vy = 0;
           }
-
           for (const t of trampolines) {
             if (
               this.vy > 0 &&
@@ -347,13 +364,91 @@
             }
           }
         }
-
         draw() {
-          if (!level3Started || !bigSharkMode) {
-            // Normal character drawing
+          if (stage === "level2") {
+            const cx = this.x + this.width / 2;
+            const cy = this.y + this.height / 2;
+            const bodyW = this.width;
+            const bodyH = this.height * 0.6;
+            ctx.fillStyle = this.baseColor;
+            ctx.fillRect(cx - bodyW/2, cy - bodyH/2, bodyW, bodyH);
+            ctx.fillRect(cx + bodyW/2 - 5, cy - 5, bodyW/2, 10);
+            ctx.save();
+            ctx.translate(cx, cy - bodyH/2 - 10);
+            ctx.rotate(pinwheelAngle * 2);
+            ctx.fillStyle = "#888";
+            ctx.fillRect(-bodyW, -5, bodyW*2, 10);
+            ctx.restore();
+            ctx.fillStyle = "#fff";
+            ctx.fillRect(cx - bodyW/6, cy - bodyH/6, bodyW/3, bodyH/3);
+          }
+          else if (stage === "level3" && !bigSharkMode) {
+            const x = this.x, y = this.y;
+            ctx.fillStyle = this.baseColor;
+            ctx.fillRect(x, y + this.height/3, this.width, this.height*2/3);
+            ctx.fillStyle = "#000";
+            ctx.fillRect(x + this.width/4, y, this.width/2, this.height/3);
+            ctx.fillStyle = "#00f";
+            ctx.fillRect(x + this.width/3, y + this.height/12, this.width/3, this.height/6);
+            ctx.fillStyle = "#555";
+            ctx.beginPath();
+            ctx.moveTo(x, y + this.height);
+            ctx.lineTo(x - 10, y + this.height + 20);
+            ctx.lineTo(x + this.width/2, y + this.height);
+            ctx.closePath();
+            ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(x + this.width, y + this.height);
+            ctx.lineTo(x + this.width + 10, y + this.height + 20);
+            ctx.lineTo(x + this.width/2, y + this.height);
+            ctx.closePath();
+            ctx.fill();
+          }
+          else if (bigSharkMode) {
+            const w = this.sharkBaseW * this.sharkScale;
+            const h = this.sharkBaseH * this.sharkScale;
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.fillStyle = this.baseColor;
+            ctx.beginPath();
+            ctx.moveTo(0, h / 2);
+            ctx.quadraticCurveTo(w / 2, -h / 4, w, h / 2);
+            ctx.quadraticCurveTo(w / 2, h + h / 4, 0, h / 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(0, h / 2);
+            ctx.lineTo(-w * 0.2, h * 0.2);
+            ctx.lineTo(-w * 0.2, h * 0.7);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = "#fff";
+            ctx.beginPath();
+            ctx.arc(w * 0.75, h * 0.3, 5 * this.sharkScale, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.fillStyle = "#000";
+            ctx.beginPath();
+            ctx.arc(w * 0.75, h * 0.3, 2 * this.sharkScale, 0, 2 * Math.PI);
+            ctx.fill();
+            const mouthOffset = (Math.sin(frameCount * 0.4) + 1) / 2 * (h * 0.1);
+            const y1 = h * 0.6 - mouthOffset / 2;
+            const y2 = h * 0.6 + mouthOffset / 2;
+            ctx.fillStyle = "#fff";
+            ctx.beginPath();
+            ctx.moveTo(w * 0.4, y1);
+            ctx.lineTo(w * 0.8, y1);
+            ctx.lineTo(w * 0.8, y2);
+            ctx.lineTo(w * 0.4, y2);
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = "#000";
+            ctx.lineWidth   = 2;
+            ctx.stroke();
+            ctx.restore();
+          }
+          else {
             let fillStyle   = this.baseColor;
             let strokeStyle = null;
-            if (this.scoreCandy >= 10 || this.scoreFlying >= 10 || level3ScoreRoger >= 10 || level3ScoreChloe >= 10) {
+            if (this.scoreCandy >= 10) {
               const grad = ctx.createLinearGradient(
                 this.x, this.y, this.x, this.y + this.height
               );
@@ -374,8 +469,6 @@
               ctx.strokeStyle = strokeStyle;
               ctx.strokeRect(this.x, this.y, this.width, this.height);
             }
-
-            // Eyes
             const eyeW = this.width * 0.2;
             const eyeH = this.height * 0.13;
             const eyeY = this.y + this.height * 0.2;
@@ -385,7 +478,6 @@
             ctx.fillRect(eyeX1, eyeY, eyeW, eyeH);
             ctx.fillRect(eyeX2, eyeY, eyeW, eyeH);
 
-            // Mouth
             let mouthW = this.width * 0.6;
             let mouthH = this.height * 0.08;
             if (holdHands) {
@@ -397,8 +489,7 @@
             ctx.fillStyle = "#000";
             ctx.fillRect(mouthX, mouthY, mouthW, mouthH);
 
-            // Pinwheel hat if level ≥15
-            if (this.scoreCandy >= 15 || this.scoreFlying >= 15 || level3ScoreRoger >= 15 || level3ScoreChloe >= 15) {
+            if (this.scoreCandy >= 15) {
               const centerX = this.x + this.width / 2;
               const centerY = this.y;
               const radius  = this.width / 2;
@@ -410,7 +501,7 @@
               ctx.fill();
               ctx.stroke();
 
-              const pinColor = (this.scoreCandy >= 20 || this.scoreFlying >= 20 || level3ScoreRoger >= 20 || level3ScoreChloe >= 20) ? "gold" : "red";
+              const pinColor = (this.scoreCandy >= 20) ? "gold" : "red";
               ctx.save();
               ctx.translate(centerX, centerY - radius * 0.5);
               ctx.rotate(pinwheelAngle);
@@ -425,56 +516,6 @@
               ctx.stroke();
               ctx.restore();
             }
-          } else {
-            // Big shark drawing with chomping jaw
-            const w = this.sharkBaseW * this.sharkScale;
-            const h = this.sharkBaseH * this.sharkScale;
-            ctx.save();
-            ctx.translate(this.x, this.y);
-
-            // Body
-            ctx.fillStyle = this.baseColor;
-            ctx.beginPath();
-            ctx.moveTo(0, h / 2);
-            ctx.quadraticCurveTo(w / 2, -h / 4, w, h / 2);
-            ctx.quadraticCurveTo(w / 2, h + h / 4, 0, h / 2);
-            ctx.fill();
-
-            // Tail
-            ctx.beginPath();
-            ctx.moveTo(0, h / 2);
-            ctx.lineTo(-w * 0.2, h * 0.2);
-            ctx.lineTo(-w * 0.2, h * 0.7);
-            ctx.closePath();
-            ctx.fill();
-
-            // Eye
-            ctx.fillStyle = "#fff";
-            ctx.beginPath();
-            ctx.arc(w * 0.75, h * 0.3, 5 * this.sharkScale, 0, 2 * Math.PI);
-            ctx.fill();
-            ctx.fillStyle = "#000";
-            ctx.beginPath();
-            ctx.arc(w * 0.75, h * 0.3, 2 * this.sharkScale, 0, 2 * Math.PI);
-            ctx.fill();
-
-            // Chomping mouth
-            const mouthOffset = (Math.sin(frameCount * 0.4) + 1) / 2 * (h * 0.1);
-            const y1 = h * 0.6 - mouthOffset / 2;
-            const y2 = h * 0.6 + mouthOffset / 2;
-            ctx.fillStyle = "#fff";
-            ctx.beginPath();
-            ctx.moveTo(w * 0.4, y1);
-            ctx.lineTo(w * 0.8, y1);
-            ctx.lineTo(w * 0.8, y2);
-            ctx.lineTo(w * 0.4, y2);
-            ctx.closePath();
-            ctx.fill();
-            ctx.strokeStyle = "#000";
-            ctx.lineWidth   = 2;
-            ctx.stroke();
-
-            ctx.restore();
           }
         }
       }
@@ -489,7 +530,7 @@
           this.vy     = 1;
         }
         update() {
-          if (!isCelebrating && !flyingMode && !level3Started) this.y += this.vy;
+          if (stage === "level1" && !bringHands && !gamePaused) this.y += this.vy;
         }
         draw() {
           let wrapperColor;
@@ -497,9 +538,9 @@
             case "holdHands":        wrapperColor = "#FF69B4"; break;
             case "stopHoldingHands": wrapperColor = "#888888"; break;
             case "megaSpeed":        wrapperColor = "#FFD700"; break;
-            case "tether":           wrapperColor = "#ADFF2F"; break;
-            case "rainbowBoost":     wrapperColor = "violet"; break;
-            case "babyShark":        wrapperColor = "#00BFFF"; break;
+            case "slowCandy":        wrapperColor = "#00CED1"; break;
+            case "candyHurricane":   wrapperColor = "#DC143C"; break;
+            case "babyShark":        wrapperColor = "#1E90FF"; break;
             default:                 wrapperColor = "#D2691E";
           }
           ctx.fillStyle = wrapperColor;
@@ -520,8 +561,8 @@
             case "holdHands":        lines = ["HOLD HANDS"]; break;
             case "stopHoldingHands": lines = ["STOP HANDS"]; break;
             case "megaSpeed":        lines = ["MEGA SPEED"]; break;
-            case "tether":           lines = ["TETHER"]; break;
-            case "rainbowBoost":     lines = ["RAINBOW", "BOOST"]; break;
+            case "slowCandy":        lines = ["SLOW", "CANDY"]; break;
+            case "candyHurricane":   lines = ["CANDY", "HURRICANE"]; break;
             case "babyShark":        lines = ["BABY", "SHARK"]; break;
           }
           const lineHeight = 14;
@@ -545,7 +586,7 @@
           this.radius = 10;
           this.x      = Math.random() * (W - this.radius * 2) + this.radius;
           this.y      = -20;
-          this.vy     = 3 + Math.random() * 2;
+          this.vy     = (3 + Math.random() * 2) * (slowCandyActive ? 0.5 : 1);
           const r = Math.random();
           if (r < 0.5) {
             this.type  = "regular";
@@ -559,9 +600,8 @@
           }
         }
         update() {
-          if (!isCelebrating && !flyingMode && !level3Started) {
-            let speed = this.vy;
-            this.y += speed;
+          if (stage === "level1" && !bringHands && !gamePaused) {
+            this.y += this.vy;
           }
         }
         draw() {
@@ -622,23 +662,20 @@
           this.vx     = 0;
         }
         update() {
-          if (!level3Started) {
+          if (stage === "level2" && !gamePaused) {
             this.y += this.vy;
             this.x += this.vx;
           }
         }
         draw() {
           if (this.type === "fairy") {
-            // Draw a small winged fairy
             const cx = this.x;
             const cy = this.y;
             const r = this.radius;
-            // Body
             ctx.fillStyle = "#FFD700";
             ctx.beginPath();
             ctx.arc(cx, cy, r * 0.3, 0, 2 * Math.PI);
             ctx.fill();
-            // Wings
             ctx.fillStyle = "rgba(255,255,255,0.7)";
             ctx.beginPath();
             ctx.ellipse(cx - r * 0.4, cy, r * 0.4, r * 0.2, Math.PI / 4, 0, 2 * Math.PI);
@@ -647,15 +684,12 @@
             ctx.ellipse(cx + r * 0.4, cy, r * 0.4, r * 0.2, -Math.PI / 4, 0, 2 * Math.PI);
             ctx.fill();
           } else if (this.type === "unicorn") {
-            // Draw a simple unicorn head
             const cx = this.x;
             const cy = this.y;
-            // Face
             ctx.fillStyle = "#FFFFFF";
             ctx.beginPath();
             ctx.arc(cx, cy, this.radius, 0, 2 * Math.PI);
             ctx.fill();
-            // Horn
             ctx.fillStyle = "#FFD700";
             ctx.beginPath();
             ctx.moveTo(cx, cy - this.radius);
@@ -663,12 +697,10 @@
             ctx.lineTo(cx + 5, cy - this.radius - 20);
             ctx.closePath();
             ctx.fill();
-            // Eye
             ctx.fillStyle = "#000";
             ctx.beginPath();
             ctx.arc(cx + this.radius * 0.3, cy - this.radius * 0.2, 3, 0, 2 * Math.PI);
             ctx.fill();
-            // Mane tuft
             ctx.fillStyle = "#FF69B4";
             ctx.beginPath();
             ctx.moveTo(cx - this.radius * 0.5, cy - this.radius * 0.2);
@@ -798,7 +830,7 @@
           this.vy     = -1.5;
         }
         update() {
-          this.y += this.vy;
+          if (stage === "level2" && !gamePaused) this.y += this.vy;
         }
         draw() {
           ctx.lineWidth = 3;
@@ -967,9 +999,20 @@
           this.y = Math.random() * (H * 0.7) + 50;
           this.vx = Math.random() * 2 + 1;
           this.size = 20 + Math.random() * 10;
-          this.color = ["#FF4500","#1E90FF","#FFD700"][Math.floor(Math.random()*3)];
+          const possibleColors = ["#FF4500","#FFD700","#ADFF2F","#FF69B4","#FFFFFF","#8A2BE2"];
+          this.color = possibleColors[Math.floor(Math.random()*possibleColors.length)];
+          this.nibbleTimer = 0;
         }
         update() {
+          if (this.nibbleTimer > 0) {
+            this.nibbleTimer--;
+            return;
+          }
+          // If near worm, nibble
+          if (Math.abs(this.x - wormX) < this.size && Math.abs(this.y - wormY) < this.size) {
+            this.nibbleTimer = 60;
+            return;
+          }
           this.x += this.vx;
           if (this.x - this.size > W) {
             this.x = -this.size;
@@ -977,22 +1020,27 @@
           }
         }
         draw() {
+          const cx = this.x;
+          const cy = this.y;
+          const r = this.size;
           ctx.fillStyle = this.color;
           ctx.beginPath();
-          ctx.moveTo(this.x, this.y);
-          ctx.quadraticCurveTo(this.x - this.size, this.y - this.size/2, this.x - this.size*2, this.y);
-          ctx.quadraticCurveTo(this.x - this.size, this.y + this.size/2, this.x, this.y);
+          ctx.ellipse(cx, cy, r, r / 2, 0, 0, 2 * Math.PI);
           ctx.fill();
-          // Tail
           ctx.beginPath();
-          ctx.moveTo(this.x - this.size*2, this.y);
-          ctx.lineTo(this.x - this.size*2 - this.size/2, this.y - this.size/3);
-          ctx.lineTo(this.x - this.size*2 - this.size/2, this.y + this.size/3);
+          ctx.moveTo(cx - r, cy);
+          ctx.lineTo(cx - r - r/2, cy - r/3);
+          ctx.lineTo(cx - r - r/2, cy + r/3);
           ctx.closePath();
+          ctx.fill();
+          ctx.fillStyle = "#000";
+          ctx.beginPath();
+          ctx.arc(cx + r/3, cy - r/8, r/8, 0, 2 * Math.PI);
           ctx.fill();
         }
         checkCatch(character) {
-          const fx = this.x, fy = this.y;
+          const fx = this.x;
+          const fy = this.y;
           const cx = character.x + character.width/2;
           const cy = character.y + character.height/2;
           const dist = Math.hypot(fx - cx, fy - cy);
@@ -1003,7 +1051,7 @@
       class Crab {
         constructor() {
           this.x = Math.random() * W;
-          this.y = H - 20;
+          this.y = H - 30;
           this.vx = Math.random() * 1 + 0.5;
           this.size = 20;
           this.phase = 0;
@@ -1017,11 +1065,9 @@
         }
         draw() {
           ctx.fillStyle = "#B22222";
-          // Body
           ctx.beginPath();
           ctx.arc(this.x, this.y, this.size, Math.PI, 2*Math.PI);
           ctx.fill();
-          // Legs
           ctx.strokeStyle = "#B22222";
           ctx.lineWidth   = 3;
           for (let i = -2; i <= 2; i++) {
@@ -1044,10 +1090,16 @@
         constructor() {
           this.radius = 20;
           this.x      = Math.random() * (W - this.radius*2) + this.radius;
-          this.y      = H - 80;
+          this.baseY  = H - 80;
+          this.y      = this.baseY;
+          this.phase  = Math.random() * Math.PI * 2;
         }
         update() {
-          // stays in place
+          this.phase += 0.03;
+          this.y = this.baseY + Math.sin(this.phase) * 5;
+          if (Math.random() < 0.01) {
+            bubbles.push(new Bubble(this.x, this.y - this.radius - 10));
+          }
         }
         draw() {
           ctx.fillStyle = "#DAA520";
@@ -1088,12 +1140,16 @@
         constructor(x, y) {
           this.x      = x;
           this.y      = y;
-          this.vy     = 2 + Math.random() * 2;
+          const angle = Math.random() * 2 * Math.PI;
+          const speed = 5 + Math.random() * 3;
+          this.vx     = Math.cos(angle) * speed;
+          this.vy     = -Math.sin(angle) * speed;
           this.radius = 5;
         }
         update() {
+          this.x += this.vx;
           this.y += this.vy;
-          this.vy += 0.2; // gravity
+          this.vy += 0.2; // gravity pull
         }
         draw() {
           ctx.fillStyle = "gold";
@@ -1179,14 +1235,104 @@
         }
       }
 
+      class Bubble {
+        constructor(x, y) {
+          this.x = x + (Math.random() * 20 - 10);
+          this.y = y;
+          this.radius = 5 + Math.random() * 5;
+          this.vy = - (1 + Math.random() * 1);
+          this.life = 60 + Math.random() * 40;
+        }
+        update() {
+          this.y += this.vy;
+          this.life--;
+        }
+        draw() {
+          ctx.strokeStyle = "rgba(173,216,230," + (this.life/100) + ")";
+          ctx.lineWidth   = 2;
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.radius, 0, 2 * Math.PI);
+          ctx.stroke();
+        }
+      }
+
+      class EnemyShark {
+        constructor() {
+          this.size = 40;
+          this.x    = -this.size;
+          this.y    = Math.random() * (H * 0.5) + 50;
+          this.vx   = 2 + Math.random() * 2;
+        }
+        update() {
+          this.x += this.vx;
+          if (this.x - this.size > W) {
+            this.x = -this.size;
+            this.y = Math.random() * (H * 0.5) + 50;
+            this.vx = 2 + Math.random() * 2;
+          }
+        }
+        draw() {
+          const w = this.size;
+          const h = this.size / 2;
+          ctx.fillStyle = "#444";
+          ctx.beginPath();
+          ctx.moveTo(this.x, this.y + h / 2);
+          ctx.quadraticCurveTo(this.x + w / 2, this.y - h / 4, this.x + w, this.y + h / 2);
+          ctx.quadraticCurveTo(this.x + w / 2, this.y + h + h / 4, this.x, this.y + h / 2);
+          ctx.fill();
+          ctx.fillStyle = "#fff";
+          ctx.beginPath();
+          ctx.arc(this.x + w * 0.6, this.y + h * 0.3, 5, 0, 2 * Math.PI);
+          ctx.fill();
+          ctx.fillStyle = "#000";
+          ctx.beginPath();
+          ctx.arc(this.x + w * 0.6, this.y + h * 0.3, 2, 0, 2 * Math.PI);
+          ctx.fill();
+        }
+        checkBite(character) {
+          const fx = this.x + this.size / 2;
+          const fy = this.y + this.size / 4;
+          const cx = character.x + character.width/2;
+          const cy = character.y + character.height/2;
+          const dist = Math.hypot(fx - cx, fy - cy);
+          return dist < this.size/2 + Math.max(character.width, character.height)/2;
+        }
+      }
+
+      class Crocodile {
+        constructor() {
+          this.size = 50;
+          this.x    = Math.random() * (W - this.size);
+          this.y    = H - 50 - this.size/2;
+          this.vx   = (Math.random() < 0.5 ? 1 : -1) * (1 + Math.random());
+        }
+        update() {
+          this.x += this.vx;
+          if (this.x <= 0 || this.x + this.size >= W) this.vx *= -1;
+        }
+        draw() {
+          ctx.fillStyle = "#228B22";
+          ctx.fillRect(this.x, this.y, this.size, this.size/2);
+          ctx.fillStyle = "#556B2F";
+          ctx.fillRect(this.x + this.size/4, this.y - this.size/4, this.size/2, this.size/2);
+          ctx.fillStyle = "#000";
+          ctx.fillRect(this.x + this.size/2, this.y, this.size/8, this.size/8);
+        }
+        checkBite(character) {
+          const cx = character.x + character.width/2;
+          const cy = character.y + character.height/2;
+          const dist = Math.hypot(this.x + this.size/2 - cx, this.y + this.size/4 - cy);
+          return dist < this.size/2 + Math.max(character.width, character.height)/2;
+        }
+      }
+
       for (let i = 0; i < 6; i++) clouds.push(new Cloud());
       for (let i = 0; i < 4; i++) birds.push(new Bird());
       for (let i = 0; i < 3; i++) planes.push(new Plane());
 
       for (let i = 0; i < 8; i++) {
         const x  = i * (W / 8) + (W / 16);
-        const sw = new Seaweed(x, H - 10);
-        seaweeds.push(sw);
+        seaweeds.push(new Seaweed(x, H - 10));
       }
       for (let i = 0; i < 10; i++) fishes.push(new Fish());
       for (let i = 0; i < 5; i++) crabs.push(new Crab());
@@ -1207,17 +1353,16 @@
       const items       = [];
       let frameCount    = 0;
       const candyInterval     = 90;
-      const holdHandsInterval = 1800;
-      const stopHoldInterval  = 800;
-      const megaSpeedInterval = 1200;
+      const holdHandsInterval = 900;   // ~15s
+      const stopHoldInterval  = 400;   // ~6.5s
+      const megaSpeedInterval = 600;   // ~10s
+      const slowCandyInterval = 600;   // ~10s
+      const hurricaneInterval = 900;   // ~15s
 
-      // Phase 2 intervals
       const powerUpIntervals = {
         rainbowBoost: 800,
         tether:       1200
       };
-
-      // Level 3 spawn intervals
       const babySharkInterval = 1500;
       const treasureInterval  = 200;
 
@@ -1275,22 +1420,27 @@
       }
 
       function updateSidebarScores() {
-        if (!flyingMode && !level3Started) {
+        if (stage === "level1") {
           rogerCurrent.innerText = `CANDY: ${roger.scoreCandy}`;
           chloeCurrent.innerText = `CANDY: ${chloe.scoreCandy}`;
-        } else if (flyingMode && !level3Started) {
+        } else if (stage === "level2") {
           rogerCurrent.innerText = `FLYING: ${roger.scoreFlying}`;
           chloeCurrent.innerText = `FLYING: ${chloe.scoreFlying}`;
-        } else if (level3Started) {
+        } else if (stage === "level3") {
           rogerCurrent.innerText = `UNDERWATER: ${level3ScoreRoger}`;
           chloeCurrent.innerText = `UNDERWATER: ${level3ScoreChloe}`;
         }
       }
 
       function resetToLevel1() {
+        stage             = "level1";
+        gamePaused        = false;
         flyingMode        = false;
-        level3Started     = false;
         bigSharkMode      = false;
+        holdHands         = false;
+        bringHands        = false;
+        tetherActive      = false;
+        tetherTimer       = 0;
         roger.scoreCandy  = 0;
         chloe.scoreCandy  = 0;
         roger.scoreFlying = 0;
@@ -1314,17 +1464,30 @@
         flyingItems.length      = 0;
         flyingPowerUps.length   = 0;
         phase2Items.length      = 0;
-        babySharks.length       = 0;
         treasures.length        = 0;
         goldCoins.length        = 0;
         fishes.length           = 0;
+        enemySharks.length      = 0;
+        crocodiles.length       = 0;
+        slowCandyActive   = false;
+        slowCandyTimer    = 0;
+        candyHurricaneActive = false;
+        hurricaneTimer       = 0;
+        hurricaneCandyCount  = 0;
+        megaSpeedActive   = false;
+        megaSpeedTimer    = 0;
         for (let i = 0; i < 10; i++) fishes.push(new Fish());
       }
 
       function resetToLevel2() {
+        stage             = "level2";
+        gamePaused        = false;
         flyingMode        = true;
-        level3Started     = false;
         bigSharkMode      = false;
+        holdHands         = false;
+        bringHands        = false;
+        tetherActive      = false;
+        tetherTimer       = 0;
         roger.scoreFlying = 0;
         chloe.scoreFlying = 0;
         level3ScoreRoger  = 0;
@@ -1348,9 +1511,14 @@
       }
 
       function resetToLevel3() {
+        stage             = "level3";
+        gamePaused        = false;
         flyingMode        = true;
-        level3Started     = true;
         bigSharkMode      = false;
+        holdHands         = false;
+        bringHands        = false;
+        tetherActive      = false;
+        tetherTimer       = 0;
         roger.scoreFlying = 0;
         chloe.scoreFlying = 0;
         level3ScoreRoger  = 0;
@@ -1376,11 +1544,23 @@
         flyingItems.length      = 0;
         flyingPowerUps.length   = 0;
         phase2Items.length      = 0;
-        babySharks.length       = 0;
         treasures.length        = 0;
         goldCoins.length        = 0;
         fishes.length           = 0;
+        enemySharks.length      = 0;
+        crocodiles.length       = 0;
+        slowCandyActive   = false;
+        slowCandyTimer    = 0;
+        candyHurricaneActive = false;
+        hurricaneTimer       = 0;
+        hurricaneCandyCount  = 0;
+        megaSpeedActive   = false;
+        megaSpeedTimer    = 0;
+
         for (let i = 0; i < 10; i++) fishes.push(new Fish());
+        // spawn one enemy shark and one crocodile
+        enemySharks.push(new EnemyShark());
+        crocodiles.push(new Crocodile());
       }
 
       cheatsDiv.addEventListener("click", e => {
@@ -1399,7 +1579,6 @@
         ctx.fillRect(0, H - 100, W, 100);
         ctx.fillStyle = "#8B4513";
         ctx.fillRect(50, 150, W - 100, 20);
-
         trampolines.forEach(t => {
           ctx.fillStyle = t.color;
           ctx.fillRect(t.x, t.y, t.width, t.height);
@@ -1408,9 +1587,23 @@
         chloe.draw();
       }
 
-      // JOYSTICK IMPLEMENTATION
-      const isMobile = 'ontouchstart' in window;
+      function spawnSpecial(type) {
+        let newItem;
+        let tries = 0;
+        do {
+          newItem = new SpecialItem(type);
+          tries++;
+        } while (
+          tries < 50 &&
+          items.some(itm => itm instanceof SpecialItem &&
+            Math.abs(itm.x - newItem.x) < newItem.width
+          )
+        );
+        items.push(newItem);
+        if (type === "holdHands") holdHandsItem = newItem;
+      }
 
+      const isMobile = 'ontouchstart' in window;
       let joystickLeft  = { dx: 0, dy: 0, active: false };
       let joystickRight = { dx: 0, dy: 0, active: false };
 
@@ -1420,14 +1613,12 @@
         const jr = document.getElementById("joystickRight");
         jl.style.display = "block";
         jr.style.display = "block";
-
         function initJoystick(elem, state) {
           const knob   = elem.querySelector(".knob");
           const rect   = elem.getBoundingClientRect();
           const centerX = rect.left + rect.width / 2;
           const centerY = rect.top + rect.height / 2;
           const maxDist = rect.width / 2 - 25;
-
           function onTouchStart(e) {
             state.active = true;
           }
@@ -1445,7 +1636,7 @@
             knob.style.left = (xPos - rect.left) + "px";
             knob.style.top  = (yPos - rect.top)  + "px";
             state.dx = (Math.cos(angle) * clamped) / maxDist;
-            state.dy = (Math.sin(angle) * clamped) / maxDist * -1; // invert Y
+            state.dy = (Math.sin(angle) * clamped) / maxDist * -1;
           }
           function onTouchEnd(e) {
             state.active = false;
@@ -1461,7 +1652,6 @@
           knob.style.left = rect.width / 2 + "px";
           knob.style.top  = rect.height / 2 + "px";
         }
-
         initJoystick(jl, joystickLeft);
         initJoystick(jr, joystickRight);
       }
@@ -1469,58 +1659,77 @@
       function gameLoop() {
         frameCount++;
         ctx.clearRect(0, 0, W, H);
-
         pinwheelAngle += 0.1;
         updateSidebarScores();
 
-        trampolines.forEach(t => {
-          if (!flyingMode && !level3Started) {
+        if (stage === "level1") {
+          trampolines.forEach(t => {
             t.x += t.vx;
             if (t.x <= 0 || t.x + t.width >= W) t.vx *= -1;
+          });
+
+          if (bringHands) {
+            ctx.fillStyle = "#FFEFD5";
+            ctx.fillRect(0, 0, W, H);
+            ctx.fillStyle = "#FFF8DC";
+            ctx.fillRect(0, H - 100, W, 100);
+            ctx.fillStyle = "#8B4513";
+            ctx.fillRect(50, 150, W - 100, 20);
+            const jarColors = ["#FF6347", "#FFD700", "#98FB98", "#87CEFA"];
+            jarColors.forEach((col, i) => {
+              const jarX = 80 + i * 180;
+              const jarY = 110;
+              ctx.fillStyle = "#FFFFFF";
+              ctx.fillRect(jarX, jarY, 60, 80);
+              ctx.strokeStyle = "#000";
+              ctx.lineWidth   = 2;
+              ctx.strokeRect(jarX, jarY, 60, 80);
+              ctx.fillStyle = col;
+              for (let c = 0; c < 10; c++) {
+                const cx = jarX + 10 + (c % 5) * 10;
+                const cy = jarY + 20 + Math.floor(c / 5) * 20;
+                ctx.beginPath();
+                ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+                ctx.fill();
+              }
+              ctx.fillStyle = "#C0C0C0";
+              ctx.fillRect(jarX - 5, jarY - 10, 70, 10);
+              ctx.strokeRect(jarX - 5, jarY - 10, 70, 10);
+            });
+            trampolines.forEach(t => {
+              ctx.fillStyle = t.color;
+              ctx.fillRect(t.x, t.y, t.width, t.height);
+            });
+
+            roger.x += rogerDX;
+            roger.y += rogerDY;
+            chloe.x += chloeDX;
+            chloe.y += chloeDY;
+            roger.draw();
+            chloe.draw();
+            const yMid = roger.y + roger.height * 0.5;
+            const rogerHandX = roger.x + roger.width;
+            const chloeHandX = chloe.x;
+            ctx.strokeStyle = "#000";
+            ctx.lineWidth   = 4;
+            ctx.beginPath();
+            ctx.moveTo(rogerHandX, yMid);
+            ctx.lineTo(chloeHandX, yMid);
+            ctx.stroke();
+            ctx.fillStyle = "#000";
+            ctx.fillRect(rogerHandX - 4, yMid - 4, 8, 8);
+            ctx.fillRect(chloeHandX - 4, yMid - 4, 8, 8);
+
+            bringHandsTimer--;
+            if (bringHandsTimer <= 0) {
+              bringHands = false;
+              holdHands = true;
+              handSpacing = chloe.x - roger.x;
+            }
+            requestAnimationFrame(gameLoop);
+            return;
           }
-        });
 
-        if (!flyingMode && roger.scoreCandy >= 25 && chloe.scoreCandy >= 25 && !isCelebrating) {
-          logPhase1();
-          flyingMode = true;
-          roger.scoreFlying = 0;
-          chloe.scoreFlying = 0;
-        }
-
-        if (flyingMode && roger.scoreFlying >= 40 && chloe.scoreFlying >= 40 && !level3Started) {
-          logPhase2();
-          level3Started = true;
-          roger.x = W * 0.3;
-          roger.y = H * 0.5;
-          chloe.x = W * 0.6;
-          chloe.y = H * 0.5;
-        }
-
-        if (isCelebrating) {
-          const targetY  = H / 2 - roger.height / 2;
-          const targetX1 = W / 2 - roger.width - 10;
-          const targetX2 = W / 2 + 10;
-          roger.x += (targetX1 - roger.x) * 0.05;
-          roger.y += (targetY - roger.y) * 0.05;
-          chloe.x += (targetX2 - chloe.x) * 0.05;
-          chloe.y += (targetY - chloe.y) * 0.05;
-          roger.draw();
-          chloe.draw();
-          celebrateTimer--;
-          if (celebrateTimer <= 0) {
-            holdHands      = true;
-            isCelebrating  = false;
-            handSpacing    = chloe.x - roger.x;
-            holdHandsItem  = null;
-            messageText    = "Hold Hands!";
-            messageTimer   = 120;
-          }
-          requestAnimationFrame(gameLoop);
-          return;
-        }
-
-        if (!flyingMode && !level3Started) {
-          // PHASE 1
           ctx.fillStyle = "#FFEFD5";
           ctx.fillRect(0, 0, W, H);
           ctx.fillStyle = "#FFF8DC";
@@ -1557,35 +1766,29 @@
 
           if (holdHands) {
             const baseSpeed = megaSpeedActive ? 24 : 12;
-            if (isMobile) {
-              const j = joystickRight;
-              roger.x += j.dx * baseSpeed;
-              const onGroundLH = roger.y + roger.height >= GROUND_Y;
-              if (j.dy < -0.5 && onGroundLH) {
-                roger.vy = BOUNCE_VEL;
-                roger.y  = GROUND_Y - roger.height;
-                chloe.vy = roger.vy;
-                chloe.y  = roger.y;
-              }
-              roger.vy += GRAVITY;
-              roger.y  += roger.vy;
-              chloe.vy = roger.vy;
-              chloe.y  = roger.y;
-            } else {
-              if (keys["ArrowLeft"])  roger.x -= baseSpeed;
-              else if (keys["ArrowRight"]) roger.x += baseSpeed;
-              const onGround = roger.y + roger.height >= GROUND_Y;
-              if (onGround && keys["ArrowUp"]) {
-                roger.vy = BOUNCE_VEL;
-                roger.y  = GROUND_Y - roger.height;
-                chloe.vy = roger.vy;
-                chloe.y  = roger.y;
-              }
-              roger.vy += GRAVITY;
-              roger.y  += roger.vy;
-              chloe.vy = roger.vy;
-              chloe.y  = roger.y;
-            }
+            let dx = 0;
+            let wantJump = false;
+            const rLeft  = isMobile ? joystickRight.dx < -0.5 : keys["ArrowLeft"];
+            const rRight = isMobile ? joystickRight.dx > 0.5  : keys["ArrowRight"];
+            const rUp    = isMobile ? joystickRight.dy < -0.5 : keys["ArrowUp"];
+            const cLeft  = isMobile ? joystickLeft.dx < -0.5  : keys["KeyA"];
+            const cRight = isMobile ? joystickLeft.dx > 0.5   : keys["KeyD"];
+            const cUp    = isMobile ? joystickLeft.dy < -0.5  : keys["KeyW"];
+
+            if (rLeft || cLeft)  dx = -baseSpeed;
+            else if (rRight || cRight) dx = baseSpeed;
+            if ((rUp || cUp) && roger.y + roger.height >= GROUND_Y) wantJump = true;
+
+            roger.x += dx;
+            roger.vy = wantJump ? BOUNCE_VEL : roger.vy;
+            if (wantJump) roger.y = GROUND_Y - roger.height;
+
+            roger.vy += GRAVITY;
+            roger.y  += roger.vy;
+
+            chloe.x = roger.x + handSpacing;
+            chloe.y = roger.y;
+            chloe.vy = roger.vy;
 
             if (roger.x < 0) roger.x = 0;
             if (roger.x + roger.width > W) roger.x = W - roger.width;
@@ -1606,6 +1809,7 @@
               chloe.y  = roger.y;
               chloe.vy = 0;
             }
+
             trampolines.forEach(t => {
               if (
                 roger.vy > 0 &&
@@ -1620,11 +1824,9 @@
                 chloe.y  = roger.y;
               }
             });
-            roger.draw();
-            chloe.x = roger.x + handSpacing;
-            chloe.y = roger.y;
-            chloe.draw();
 
+            roger.draw();
+            chloe.draw();
             const yMid = roger.y + roger.height * 0.5;
             const rogerHandX = roger.x + roger.width;
             const chloeHandX = chloe.x;
@@ -1637,6 +1839,7 @@
             ctx.fillStyle = "#000";
             ctx.fillRect(rogerHandX - 4, yMid - 4, 8, 8);
             ctx.fillRect(chloeHandX - 4, yMid - 4, 8, 8);
+
           } else {
             roger.update(chloe, isMobile ? joystickRight : null);
             chloe.update(roger, isMobile ? joystickLeft : null);
@@ -1646,18 +1849,23 @@
             chloe.draw();
           }
 
-          if (frameCount % candyInterval === 0) {
+          if (!gamePaused && frameCount % candyInterval === 0) {
             items.push(new Candy());
           }
-          if (!holdHands && frameCount % holdHandsInterval === 0 && !holdHandsItem) {
-            holdHandsItem = new SpecialItem("holdHands");
-            items.push(holdHandsItem);
+          if (!holdHands && !bringHands && !gamePaused && frameCount % holdHandsInterval === 0 && !holdHandsItem) {
+            spawnSpecial("holdHands");
           }
-          if (holdHands && frameCount % stopHoldInterval === 0) {
-            items.push(new SpecialItem("stopHoldingHands"));
+          if (holdHands && !bringHands && !gamePaused && frameCount % stopHoldInterval === 0) {
+            spawnSpecial("stopHoldingHands");
           }
-          if (frameCount % megaSpeedInterval === 0) {
-            items.push(new SpecialItem("megaSpeed"));
+          if (!gamePaused && frameCount % megaSpeedInterval === 0) {
+            spawnSpecial("megaSpeed");
+          }
+          if (!gamePaused && frameCount % slowCandyInterval === 0) {
+            spawnSpecial("slowCandy");
+          }
+          if (!gamePaused && frameCount % hurricaneInterval === 0) {
+            spawnSpecial("candyHurricane");
           }
 
           for (let i = items.length - 1; i >= 0; i--) {
@@ -1668,14 +1876,21 @@
             if (itm instanceof SpecialItem) {
               if (itm === holdHandsItem) {
                 if (itm.checkCatch(roger) || itm.checkCatch(chloe)) {
-                  isCelebrating = true;
-                  celebrateTimer = 120;
+                  bringHands = true;
+                  bringHandsTimer = bringHandsDuration;
+                  rogerStartX = roger.x;
+                  rogerStartY = roger.y;
+                  chloeStartX = chloe.x;
+                  chloeStartY = chloe.y;
+                  const gap = 5;
+                  const rogerTargetX = W / 2 - roger.width - gap / 2;
+                  const chloeTargetX = W / 2 + gap / 2;
+                  const targetY = H / 2 - roger.height / 2;
+                  rogerDX = (rogerTargetX - rogerStartX) / bringHandsDuration;
+                  rogerDY = (targetY - rogerStartY) / bringHandsDuration;
+                  chloeDX = (chloeTargetX - chloeStartX) / bringHandsDuration;
+                  chloeDY = (targetY - chloeStartY) / bringHandsDuration;
                   showPowerUpDescription("holdHands");
-                  items.splice(i, 1);
-                  continue;
-                }
-                if (itm.y - itm.height > H) {
-                  holdHandsItem = null;
                   items.splice(i, 1);
                 }
                 continue;
@@ -1694,6 +1909,37 @@
                     showPowerUpDescription("megaSpeed");
                     messageText = "Mega Speed!";
                     messageTimer = 120;
+                    break;
+                  case "slowCandy":
+                    slowCandyActive = true;
+                    slowCandyTimer  = 600;
+                    showPowerUpDescription("slowCandy");
+                    messageText = "Slow Candy!";
+                    messageTimer = 120;
+                    break;
+                  case "candyHurricane":
+                    candyHurricaneActive = true;
+                    hurricaneTimer       = 1800;
+                    hurricaneCandyCount  = 100;
+                    showPowerUpDescription("candyHurricane");
+                    messageText = "Candy Hurricane!";
+                    messageTimer = 120;
+                    break;
+                  case "babyShark":
+                    bigSharkMode = true;
+                    roger.sharkScale   = 1;
+                    roger.sharkBaseW   = 80;
+                    roger.sharkBaseH   = 40;
+                    roger.width        = roger.sharkBaseW;
+                    roger.height       = roger.sharkBaseH;
+                    roger.baseColor    = "#0077cc";
+                    chloe.sharkScale   = 1;
+                    chloe.sharkBaseW   = 80;
+                    chloe.sharkBaseH   = 40;
+                    chloe.width        = chloe.sharkBaseW;
+                    chloe.height       = chloe.sharkBaseH;
+                    chloe.baseColor    = "#ff1493";
+                    showPowerUpDescription("babyShark");
                     break;
                 }
                 items.splice(i, 1);
@@ -1751,6 +1997,26 @@
             }
           }
 
+          if (slowCandyActive) {
+            slowCandyTimer--;
+            if (slowCandyTimer <= 0) {
+              slowCandyActive = false;
+            }
+          }
+
+          if (candyHurricaneActive && hurricaneTimer > 0 && hurricaneCandyCount > 0) {
+            if (frameCount % 6 === 0) {
+              items.push(new Candy());
+              hurricaneCandyCount--;
+            }
+            hurricaneTimer--;
+            if (hurricaneTimer <= 0 || hurricaneCandyCount <= 0) {
+              candyHurricaneActive = false;
+              hurricaneTimer = 0;
+              hurricaneCandyCount = 0;
+            }
+          }
+
           if (megaSpeedActive) {
             megaSpeedTimer--;
             if (megaSpeedTimer <= 0) megaSpeedActive = false;
@@ -1764,8 +2030,13 @@
             ctx.fillText(messageText, W / 2, 50);
           }
 
-        } else if (flyingMode && !level3Started) {
-          // PHASE 2
+          if (!holdHands && roger.scoreCandy >= 25 && chloe.scoreCandy >= 25) {
+            logPhase1();
+            resetToLevel2();
+          }
+        }
+
+        if (stage === "level2") {
           ctx.fillStyle = "#87CEEB";
           ctx.fillRect(0, 0, W, H);
 
@@ -1774,34 +2045,26 @@
           ctx.arc(80, 80, 50, 0, 2 * Math.PI);
           ctx.fill();
 
-          clouds.forEach(c => {
-            c.update();
-            c.draw();
-          });
-          birds.forEach(b => {
-            b.update();
-            b.draw();
-          });
-          planes.forEach(p => {
-            p.update();
-            p.draw();
-          });
+          clouds.forEach(c => { c.update(); c.draw(); });
+          birds.forEach(b => { b.update(); b.draw(); });
+          planes.forEach(p => { p.update(); p.draw(); });
 
-          Object.entries(powerUpIntervals).forEach(([type, interval]) => {
-            if (frameCount % interval === 0) {
-              flyingPowerUps.push(new FlyingPowerUp(type));
+          if (!gamePaused) {
+            Object.entries(powerUpIntervals).forEach(([type, interval]) => {
+              if (frameCount % interval === 0) {
+                flyingPowerUps.push(new FlyingPowerUp(type));
+              }
+            });
+            if (frameCount % 120 === 0) {
+              const types = ["fairy", "unicorn", "icecream"];
+              const t = types[Math.floor(Math.random() * types.length)];
+              phase2Items.push(new Phase2Collectible(t));
             }
-          });
-          if (frameCount % 120 === 0) {
-            const types = ["fairy", "unicorn", "icecream"];
-            const t = types[Math.floor(Math.random() * types.length)];
-            phase2Items.push(new Phase2Collectible(t));
-          }
-          if (frameCount % 2600 === 0) {
-            flyingPowerUps.push(new FlyingPowerUp("tether"));
+            if (frameCount % 2600 === 0) {
+              flyingPowerUps.push(new FlyingPowerUp("tether"));
+            }
           }
 
-          // Movement
           if (isMobile) {
             if (tetherActive) {
               let mx = 0, my = 0;
@@ -1823,8 +2086,8 @@
               chloe.y -= joystickLeft.dy * FLY_SPEED;
             }
           } else {
-            let moveX = 0, moveY = 0;
             if (tetherActive) {
+              let moveX = 0, moveY = 0;
               if (keys["ArrowLeft"] || keys["KeyA"])  moveX = -FLY_SPEED;
               else if (keys["ArrowRight"] || keys["KeyD"]) moveX = FLY_SPEED;
               if (keys["ArrowUp"] || keys["KeyW"])    moveY = -FLY_SPEED;
@@ -1989,43 +2252,112 @@
             }
           }
 
-        } else if (level3Started) {
-          // LEVEL 3: Underwater
+          if (roger.scoreFlying >= 40 && chloe.scoreFlying >= 40) {
+            logPhase2();
+            resetToLevel3();
+          }
+        }
 
+        if (stage === "level3") {
+          // Background
           ctx.fillStyle = "#1E90FF";
           ctx.fillRect(0, 0, W, H);
-
-          // Draw sea floor
+          // Sea floor
           ctx.fillStyle = "#8B4513";
           ctx.fillRect(0, H - 50, W, 50);
 
-          // Draw seaweed
-          seaweeds.forEach(sw => sw.draw());
+          // Sea castle & anchor
+          ctx.fillStyle = "#555";
+          ctx.beginPath();
+          ctx.moveTo(100, H - 50);
+          ctx.lineTo(100, H - 180);
+          ctx.lineTo(180, H - 240);
+          ctx.lineTo(260, H - 180);
+          ctx.lineTo(260, H - 50);
+          ctx.closePath();
+          ctx.fill();
+          ctx.fillRect(120, H - 120, 40, 70);
+          ctx.fillRect(200, H - 160, 40, 110);
+          // Anchor
+          ctx.strokeStyle = "#000";
+          ctx.lineWidth   = 4;
+          ctx.beginPath();
+          ctx.moveTo(400, H - 50);
+          ctx.lineTo(400, H - 100);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.arc(390, H - 50, 10, 0, Math.PI, true);
+          ctx.moveTo(380, H - 50);
+          ctx.lineTo(370, H - 40);
+          ctx.moveTo(420, H - 50);
+          ctx.lineTo(430, H - 40);
+          ctx.stroke();
 
-          // Draw jellyfish & octopus
+          // Boat at top
+          const boatX = W/2 - boatW/2;
+          ctx.fillStyle = "#8B4513";
+          ctx.fillRect(boatX, boatY, boatW, boatH);
+          ctx.fillStyle = "#000";
+          ctx.fillRect(boatX + 30, boatY - 10, 60, 10);
+          // Hook line
+          ctx.strokeStyle = "#000";
+          ctx.lineWidth   = 2;
+          ctx.beginPath();
+          ctx.moveTo(W/2, boatY + boatH);
+          ctx.lineTo(W/2, wormY - 5);
+          ctx.stroke();
+          // Worm on hook
+          ctx.fillStyle = "#FF4500";
+          ctx.beginPath();
+          ctx.arc(wormX, wormY, 6, 0, 2 * Math.PI);
+          ctx.fill();
+
+          seaweeds.forEach(sw => sw.draw());
           jellyfishes.forEach(j => { j.update(); j.draw(); });
           octopuses.forEach(o => { o.update(); o.draw(); });
 
-          // Draw, update fishes, and handle collection
+          // Update and draw enemy sharks
+          enemySharks.forEach(sh => {
+            sh.update();
+            sh.draw();
+            [roger, chloe].forEach(ch => {
+              if (sh.checkBite(ch) && ch.invincible <= 0) {
+                ch.invincible = 60;
+                if (ch === roger && level3ScoreRoger > 0) level3ScoreRoger--;
+                if (ch === chloe && level3ScoreChloe > 0) level3ScoreChloe--;
+              }
+            });
+          });
+
+          // Update and draw crocodiles
+          crocodiles.forEach(cr => {
+            cr.update();
+            cr.draw();
+            [roger, chloe].forEach(ch => {
+              if (cr.checkBite(ch) && ch.invincible <= 0) {
+                ch.invincible = 60;
+                if (ch === roger && level3ScoreRoger > 0) level3ScoreRoger--;
+                if (ch === chloe && level3ScoreChloe > 0) level3ScoreChloe--;
+              }
+            });
+          });
+
           for (let i = fishes.length - 1; i >= 0; i--) {
             const f = fishes[i];
             f.update();
             f.draw();
-            // Check collection by Roger
             if (f.checkCatch(roger)) {
               level3ScoreRoger++;
               level3ScoreChloe++;
               fishes.splice(i, 1);
               continue;
             }
-            // Check collection by Chloe
             if (f.checkCatch(chloe)) {
               level3ScoreRoger++;
               level3ScoreChloe++;
               fishes.splice(i, 1);
               continue;
             }
-            // If shark mode, allow chomping (double points)
             if (bigSharkMode) {
               const fx = f.x, fy = f.y;
               const rx = roger.x + (roger.sharkBaseW * roger.sharkScale) / 2;
@@ -2036,7 +2368,6 @@
               const distC = Math.hypot(fx - cx, fy - cy);
               const sharkRadius = Math.max(roger.sharkBaseW * roger.sharkScale, roger.sharkBaseH * roger.sharkScale) / 2;
               if (distR < f.size + sharkRadius || distC < f.size + sharkRadius) {
-                // Fish eaten by shark (double)
                 level3ScoreRoger += 2;
                 level3ScoreChloe += 2;
                 fishes.splice(i, 1);
@@ -2044,65 +2375,54 @@
             }
           }
 
-          // Draw crabs
-          crabs.forEach(c => {
-            c.update();
-            c.draw();
-          });
+          crabs.forEach(c => { c.update(); c.draw(); });
 
-          // Spawn baby shark occasionally
           if (frameCount % babySharkInterval === 0) {
-            babySharks.push(new SpecialItem("babyShark"));
+            items.push(new SpecialItem("babyShark"));
           }
-
-          // Update & draw baby shark items
-          for (let i = babySharks.length - 1; i >= 0; i--) {
-            const bs = babySharks[i];
-            bs.update();
-            bs.draw();
-            if (bs.checkCatch(roger) || bs.checkCatch(chloe)) {
-              bigSharkMode = true;
-              roger.sharkScale   = 1;
-              roger.sharkBaseW   = 80;
-              roger.sharkBaseH   = 40;
-              roger.width        = roger.sharkBaseW;
-              roger.height       = roger.sharkBaseH;
-              roger.baseColor    = "#0077cc";
-              chloe.sharkScale   = 1;
-              chloe.sharkBaseW   = 80;
-              chloe.sharkBaseH   = 40;
-              chloe.width        = chloe.sharkBaseW;
-              chloe.height       = chloe.sharkBaseH;
-              chloe.baseColor    = "#ff1493";
-              showPowerUpDescription("babyShark");
-              babySharks.splice(i, 1);
+          for (let i = items.length - 1; i >= 0; i--) {
+            const itm = items[i];
+            if (itm instanceof SpecialItem && itm.type === "babyShark") {
+              itm.update();
+              itm.draw();
+              if (itm.checkCatch(roger) || itm.checkCatch(chloe)) {
+                bigSharkMode = true;
+                roger.sharkScale   = 1;
+                roger.sharkBaseW   = 80;
+                roger.sharkBaseH   = 40;
+                roger.width        = roger.sharkBaseW;
+                roger.height       = roger.sharkBaseH;
+                roger.baseColor    = "#0077cc";
+                chloe.sharkScale   = 1;
+                chloe.sharkBaseW   = 80;
+                chloe.sharkBaseH   = 40;
+                chloe.width        = chloe.sharkBaseW;
+                chloe.height       = chloe.sharkBaseH;
+                chloe.baseColor    = "#ff1493";
+                showPowerUpDescription("babyShark");
+                items.splice(i, 1);
+              }
             }
           }
 
-          // Spawn treasure chest occasionally
           if (frameCount % treasureInterval === 0) {
             treasures.push(new Treasure());
           }
-
-          // Update & draw treasures; allow player or crab to collect
           for (let i = treasures.length - 1; i >= 0; i--) {
             const tr = treasures[i];
             tr.update();
             tr.draw();
             let collected = false;
-            // Check collection by Roger
             if (tr.checkCatchByPlayer(roger)) {
               level3ScoreRoger += 5;
               level3ScoreChloe += 5;
               collected = true;
             }
-            // Check collection by Chloe
             if (!collected && tr.checkCatchByPlayer(chloe)) {
               level3ScoreRoger += 5;
               level3ScoreChloe += 5;
               collected = true;
             }
-            // Check collection by any crab
             if (!collected) {
               for (const c of crabs) {
                 if (tr.checkCatchByCrab(c)) {
@@ -2113,35 +2433,32 @@
             }
             if (collected) {
               showPowerUpDescription("treasure");
-              // Spawn gold coins
-              for (let n = 0; n < 20; n++) {
-                const offsetX = (Math.random() * 40) - 20;
-                goldCoins.push(new GoldCoin(tr.x + offsetX, tr.y));
+              // coin explosion: shoot coins upward like fireworks
+              for (let n = 0; n < 30; n++) {
+                const offsetX = tr.x;
+                const offsetY = tr.y;
+                goldCoins.push(new GoldCoin(offsetX, offsetY));
               }
               treasures.splice(i, 1);
             }
           }
 
-          // Update & draw gold coins; check collection by crab or player
           for (let i = goldCoins.length - 1; i >= 0; i--) {
             const gc = goldCoins[i];
             gc.update();
             gc.draw();
             let taken = false;
-            // By crab
             for (const c of crabs) {
               if (gc.checkCatchByCrab(c)) {
                 taken = true;
                 break;
               }
             }
-            // By Roger
             if (!taken && gc.checkCatchByPlayer(roger)) {
               level3ScoreRoger++;
               level3ScoreChloe++;
               taken = true;
             }
-            // By Chloe
             if (!taken && gc.checkCatchByPlayer(chloe)) {
               level3ScoreRoger++;
               level3ScoreChloe++;
@@ -2149,13 +2466,18 @@
             }
             if (taken) {
               goldCoins.splice(i, 1);
-            } else if (gc.y + gc.radius > H - 50) {
-              // Remove if it hits sea floor
+            } else if (gc.y - gc.radius > H - 50) {
               goldCoins.splice(i, 1);
             }
           }
 
-          // Move players/submarines
+          for (let i = bubbles.length - 1; i >= 0; i--) {
+            const b = bubbles[i];
+            b.update();
+            b.draw();
+            if (b.life <= 0) bubbles.splice(i, 1);
+          }
+
           if (isMobile) {
             roger.x += joystickRight.dx * 2;
             roger.y -= joystickRight.dy * 2;
@@ -2175,6 +2497,7 @@
           }
 
           [roger, chloe].forEach(ch => {
+            if (ch.invincible > 0) ch.invincible--;
             if (ch.x < 0) ch.x = 0;
             if (ch.x + ch.width > W) ch.x = W - ch.width;
             if (ch.y < 0) ch.y = 0;
@@ -2194,6 +2517,7 @@
           ctx.textAlign  = "center";
           ctx.fillText(messageText, W / 2, 50);
         }
+
         requestAnimationFrame(gameLoop);
       }
 
